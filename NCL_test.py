@@ -9,6 +9,14 @@ import xarray as xr
 import os
 import sys
 import netCDF4 as nc
+import geopandas as gpd
+from pprint import pprint
+from numpy import meshgrid, deg2rad, gradient, cos
+from xarray import DataArray
+from Israel_grid import israel_coord
+
+
+
 
 DATA_1 = '1980_141.nc'
 DATA_2 = 'download.nc'
@@ -99,8 +107,7 @@ def area_grid(lat, lon):
     Based on the function in
     https://github.com/chadagreene/CDT/blob/master/cdt/cdtarea.m
     """
-    from numpy import meshgrid, deg2rad, gradient, cos
-    from xarray import DataArray
+
 
     xlon, ylat = meshgrid(lon, lat)
     R = earth_radius(ylat)
@@ -163,6 +170,7 @@ def plot_data_on_map(data, m_data):
     lats = ds.variables['latitude'][:]
     lons = ds.variables['longitude'][:]
 
+
     """  Units of -->tp[m]: The depth of water on a p
      To get the total precipitation for an hour (mm) :  tp [mm]=tp [m]⋅1000"""
     # total_precipitation = ds["tp"]
@@ -172,14 +180,31 @@ def plot_data_on_map(data, m_data):
     # total_precipitation.isel(time=0).plot()
     # plt.show()
 
-    tp_weighted = calculate_total_precipitation_weighted(ds)
-    # print(tp_weighted)
+    tp_weighted = calculate_total_precipitation_weighted(ds)/1000
+    time_int = tp_weighted.integrate(coord=["time"])
+    # israel_tp = xr.DataArray(dims=["longitude", "latitude"])
+    israel_tp=[]
+    # for c in israel_coord_list:
+    #     if (c[0] in time_int["longitude"][:]) and (c[1] in
+
+    tp_israel = []
+
+    for c in israel_coord[1]:
+        for r in israel_coord[0]:
+            tp_israel.append((time_int.where((tp_weighted["longitude"] == r) & (tp_weighted["latitude"] == c), drop=True)).data)
+            print(tp_israel)
+
+
+    print(sum(tp_israel))
+    exit()
     # tp_weighted.isel(time=0).plot()
     # plt.show()
-    print("NO")
-    print(tp_weighted)
-    print("yes")
-    print(tp_weighted.integrate(coord=["time"]))
+    # print("NO")
+    # print(tp_weighted)
+    # print("yes")
+    # print(tp_weighted.integrate(coord=["time"]))
+
+
 
     lon, lat = np.meshgrid(lons, lats)
     lama = 141 if DATA_1 in fn else 85
@@ -208,10 +233,12 @@ def plot_data_on_map(data, m_data):
                         'Latitude']
                     map.plot(np.array(lon_f), np.array(lat_f), latlon=True, linewidth=5)
                     map.drawcoastlines()
+                    map.drawcountries(zorder=1,color="black", linewidth=1)
                     # labels = [left,right,top,bottom]
                     map.drawmeridians(np.arange(28, 40, 1), labels=[True,False,False,True])
                     map.drawparallels(np.arange(20, 40, 1), labels=[True,False,False,False])
                     plt.colorbar(label='tp')
+
 
 
 
@@ -238,8 +265,8 @@ def plot_data_on_map(data, m_data):
 
                 # list_sum.append(sum_int)
 
-        map.plot([28, 28, 36, 36, 28], [36, 31, 31, 36, 36], latlon=True, c="r")
-        map.drawcoastlines()
+        # map.plot([28, 28, 36, 36, 28], [36, 31, 31, 36, 36], latlon=True, c="r")
+        # map.drawcoastlines()
 
 
 def project():
