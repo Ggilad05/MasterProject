@@ -3,12 +3,10 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.basemap import Basemap
 import xarray as xr
 import numpy as np
-import mplcursors
-import rioxarray
-import geopandas
-from Israel_grid import gdf
-import geowombat as gw
-from geowombat.data import rgbn
+
+
+
+
 
 
 
@@ -40,5 +38,9 @@ def plot_tp(data, lons, lats):
     map.drawparallels(np.arange(20, 40, 1), labels=[True, False, False, False])
 
     plt.show()
+
+
+
+
 
 

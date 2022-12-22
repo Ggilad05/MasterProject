@@ -3,7 +3,7 @@ import pandas as pd
 import glob
 import xarray as xr
 import rioxarray as riox
-from Israel_grid import gdf
+
 
 
 
