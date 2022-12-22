@@ -13,7 +13,10 @@ import geopandas as gpd
 from pprint import pprint
 from numpy import meshgrid, deg2rad, gradient, cos
 from xarray import DataArray
-from Israel_grid import israel_coord
+# import regionmask
+
+
+
 
 
 
@@ -108,7 +111,6 @@ def area_grid(lat, lon):
     https://github.com/chadagreene/CDT/blob/master/cdt/cdtarea.m
     """
 
-
     xlon, ylat = meshgrid(lon, lat)
     R = earth_radius(ylat)
 
@@ -134,20 +136,19 @@ def area_grid(lat, lon):
 
 
 def calculate_total_precipitation_weighted(data):
-    # area dataArray
+     # area dataArray
     da_area = area_grid(data['latitude'], data['longitude'])
-    # total_area = np.abs(da_area.sum(['latitude','longitude']))
-    total_area = 5.1006948e+14
+    total_area = 5.1006948e+14 # m^2
     # tp weighted by grid-cell area
-    temp_weighted = (data["tp"] * da_area) / total_area
-    return (data["tp"] * da_area) / total_area
+    tp_weighted = ((data["tp"]*(10**9) * da_area) / total_area)
+    return tp_weighted
 
 
 def plot_data_on_map(data, m_data):
     # data - Trajectories data
 
-    x = data.loc[(data["Index"] == 1) & (data["Year"] == 2000)]['Longitude']
-    y = data.loc[(data["Index"] == 1) & (data["Year"] == 2000)]['Latitude']
+    # x = data.loc[(data["Index"] == 1) & (data["Year"] == 2000)]['Longitude']
+    # y = data.loc[(data["Index"] == 1) & (data["Year"] == 2000)]['Latitude']
 
     # years = get_years_list([], 1979, 41)
     years = get_years_list([], 1980, 0)
@@ -162,47 +163,44 @@ def plot_data_on_map(data, m_data):
     # fn = "C:/GOG Games/download.nc"
     #fn = "C:/GOG Games/1980_141.nc"
     # fn = f"C:/GOG Games/{DATA_2}"
-    fn = FILEPATH.format('1980_141.nc')
-    # fn = "C:/Users/shrei/PycharmProjects/MasterProject/1980_141_all.nc"
+    # fn = FILEPATH.format('1980_141.nc')
+    fn = "C:/Users/shrei/PycharmProjects/MasterProject/2019_98.nc"
     ds = xr.open_dataset(fn)
+
+
 
     # Load lat and lon
     lats = ds.variables['latitude'][:]
+    ds = ds.assign_coords(longitude=(((ds.longitude + 180) % 360) - 180))
     lons = ds.variables['longitude'][:]
 
 
     """  Units of -->tp[m]: The depth of water on a p
      To get the total precipitation for an hour (mm) :  tp [mm]=tp [m]⋅1000"""
-    # total_precipitation = ds["tp"]
-    # total_precipitation.data = total_precipitation.data * 1000
-    # total_precipitation.attrs['units'] = 'mm'
+    total_precipitation = ds["tp"]
+    total_precipitation.data = total_precipitation.data * 1000
+    total_precipitation.attrs['units'] = 'mm'
+    total_precipitation.isel(time=0).plot()
+    plt.show()
+    # plt.close()
+
+
+    # total_precipitation.isel(time=0).plot()
+    # plt.show()
+    # exit()
     # print(total_precipitation[0,0,1])
     # total_precipitation.isel(time=0).plot()
     # plt.show()
 
-    tp_weighted = calculate_total_precipitation_weighted(ds)/1000
-    time_int = tp_weighted.integrate(coord=["time"])
-    # israel_tp = xr.DataArray(dims=["longitude", "latitude"])
-    israel_tp=[]
-    # for c in israel_coord_list:
-    #     if (c[0] in time_int["longitude"][:]) and (c[1] in
+    tp_weighted = calculate_total_precipitation_weighted(ds)
+    tp_weighted.attrs['units'] = 'mm'
+    tp_weighted.isel(time=0).plot()
+    # plt.show()
+    # tpw_ti = tp_weighted.sum(dim="time")
 
     tp_israel = []
 
-    for c in israel_coord[1]:
-        for r in israel_coord[0]:
-            tp_israel.append((time_int.where((tp_weighted["longitude"] == r) & (tp_weighted["latitude"] == c), drop=True)).data)
-            print(tp_israel)
 
-
-    print(sum(tp_israel))
-    exit()
-    # tp_weighted.isel(time=0).plot()
-    # plt.show()
-    # print("NO")
-    # print(tp_weighted)
-    # print("yes")
-    # print(tp_weighted.integrate(coord=["time"]))
 
 
 
@@ -225,6 +223,7 @@ def plot_data_on_map(data, m_data):
                 for i in range(0, len(tp_weighted)):
                     # norm = mpl.colors.Normalize(vmin=0, vmax=3)
                     map.pcolor(x, y, np.squeeze(tp_weighted[i, :, :]), cmap='jet')
+
 
                     #
                     lon_f = filtered_data.loc[(filtered_data["Index"] == j) & (filtered_data["Year"] == year)][
