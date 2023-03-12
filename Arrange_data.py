@@ -26,10 +26,11 @@ def arrange_data():
     return main_data, IMS_data
 
 
-def get_nc():
+def get_nc(year):
 
-    fn = "C:/Users/shrei/PycharmProjects/MasterProject/2019_98.nc"
+    fn = "C:/Users/shrei/PycharmProjects/MasterProject/1979_2020/"+str(year)+".nc"
     ds = xr.open_dataset(fn)
+
     # Load lat and lon
     lats = ds.variables['latitude'][:]
     ds = ds.assign_coords(longitude=(((ds.longitude + 180) % 360) - 180))

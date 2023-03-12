@@ -23,10 +23,10 @@ is_lat = []
 for p in israel_coords:
     is_lon.append(p[0])
     is_lat.append(p[1])
-map = Basemap(projection='cass', lat_0=31.5, lon_0=32.851612, width=505000 * 2, height=790000,
-              resolution='l')
-map.plot(x=is_lon, y=is_lat, latlon=True)
-plt.show()
+# map = Basemap(projection='cass', lat_0=31.5, lon_0=32.851612, width=505000 * 2, height=790000,
+#               resolution='l')
+# map.plot(x=is_lon, y=is_lat, latlon=True)
+# plt.show()
 
 is_polygon = Polygon(israel_coords)
 
