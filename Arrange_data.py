@@ -6,11 +6,10 @@ import rioxarray as riox
 
 
 
-
 def arrange_data():
-    # folder_path = 'C:/Users/shrei/PycharmProjects/MasterProject/tracks_ERA5_1979-2020_0.25deg_1hr'
-    # file_list = glob.glob(folder_path + "/*.txt")
-    folder_path = 'C:/Users/shrei/PycharmProjects/MasterProject/1979'
+    folder_path = 'C:/Users/shrei/PycharmProjects/MasterProject/tracks_ERA5_1979-2020_0.25deg_1hr'
+    file_list = glob.glob(folder_path + "/*.txt")
+    # folder_path = 'C:/Users/shrei/PycharmProjects/MasterProject/1979'
     file_list = glob.glob(folder_path + "/*.txt")
     main_data = pd.DataFrame()
     for i in range(0, len(file_list)):
@@ -19,6 +18,7 @@ def arrange_data():
         main_data = pd.concat([main_data, data])
 
     IMS_data = pd.read_csv('C:/Users/shrei/PycharmProjects/MasterProject/IMS_GILAD.csv')
+
 
     # IMS_new_data = pd.DataFrame(columns= ["Year"," Month", "Day","Mean MSLP"
     #     , "Accumulate precipitation", "# IMS > 0","% StationRain/ TotalStations"])
@@ -29,8 +29,7 @@ def arrange_data():
 
 
 def get_nc(year):
-
-    fn = "C:/Users/shrei/PycharmProjects/MasterProject/1979_2020/"+str(year)+".nc"
+    fn = "C:/Users/shrei/PycharmProjects/MasterProject/1979_2020/" + str(year) + ".nc"
     ds = xr.open_dataset(fn)
 
     # Load lat and lon

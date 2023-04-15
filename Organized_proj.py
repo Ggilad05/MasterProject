@@ -11,7 +11,6 @@ import pandas as pd
 import xarray as xr
 
 
-
 def point_in_polygon(polygon, point):
     # Create a Shapely polygon from the list of coordinates
     poly = Polygon(polygon)
@@ -22,6 +21,7 @@ def point_in_polygon(polygon, point):
     # Check if the point is inside the polygon using the .within() method
     return pt.within(poly)
 
+
 def israel_mask(d, poly):
     mask = np.empty((len(d["latitude"]), len(d["longitude"])))
     mask[:] = np.NaN
@@ -31,8 +31,13 @@ def israel_mask(d, poly):
             # if int(p.within(poly)) == 1:
             if poly.contains(p):
                 mask[i, j] = 1
+    israel = xr.DataArray(data=d * mask, attrs=dict(
+        description="Total Precipitation",
+        units="mm"))
+    israel
 
-    return d * mask
+    return israel
+
 
 def region_prep_check(tp_weighted, lons, lats):
     region_1 = tp_weighted.sel(longitude=35.61, latitude=33.17, method='nearest')
@@ -88,8 +93,8 @@ def region_prep_check(tp_weighted, lons, lats):
     tp_tot = tp_time_sum.sum(dim=["longitude", "latitude"])
     tp_tot.plot()
 
-def cyclones_tracks(data):
 
+def cyclones_tracks(data):
     year = 1979
     d, lons, lats = get_nc(year)
     tp = calculate_weighted(d, lons, lats)
@@ -98,48 +103,51 @@ def cyclones_tracks(data):
     track_progression = []
 
     hours_all = []
-    tp_progress_all =[]
+    tp_progress_all = []
     tp_life_cycle_all = []
     tp_life_cycle = 0
     tp_progress = []
-    tp_israel_hour= []
 
-    tp_all = np.zeros([40,40])
-    tp_i_acc = xr.DataArray(np.zeros(119).reshape(17, 7),
+    tp_all = np.zeros([40, 40])
+    # tp_i_acc = xr.DataArray(np.zeros(119).reshape(17, 7),
+    #                         dims=["latitude", "longitude"],
+    #                         coords=(
+    #                             np.arange(29.5, 33.75, 0.25),
+    #                             np.arange(34.25, 36, 0.25)))
+
+    tp_i_acc = xr.DataArray(np.zeros(225).reshape(15, 15),
                             dims=["latitude", "longitude"],
                             coords=(
-                                np.arange(29.5, 33.75, 0.25),
-                                np.arange(34.25, 36, 0.25)))
+                                np.arange(29.75, 33.5, 0.25),
+                                np.arange(33, 36.75, 0.25)))
 
-    continue_list =[]
+    continue_list = []
+    tp_israel_hour = []
     for track in data.iloc:
-
-
 
         lon_index = list(lons).index(track["Longitude"])
         lat_index = list(lats).index(track["Latitude"])
 
-        if lon_index < 20 or lon_index > len(lons) -20  or lat_index < 20 or lat_index > len(lats)-20:
+        if lon_index < 20 or lon_index > len(lons) - 20 or lat_index < 20 or lat_index > len(lats) - 20:
             if [track["Year"], track["Index"]] not in continue_list:
                 continue_list.append([track["Year"], track["Index"]])
                 print(continue_list)
             continue
         month = str(track["Month"])
         if track["Month"] < 10:
-            month = "0"+month[0]
+            month = "0" + month[0]
         else:
             month = month[0] + month[1]
         day = str(track["Day"])
         if track["Day"] < 10:
-            day = "0"+day[0]
+            day = "0" + day[0]
         else:
             day = day[0] + day[1]
         hour = str(track["Hour"])
         if track["Hour"] < 10:
-            hour = "0"+hour[0]
+            hour = "0" + hour[0]
         else:
             hour = hour[0] + hour[1]
-
 
         if track["Year"] == year:
             np_time = np.datetime64(str(int(track["Year"])) + "-" + month + "-" + day + "T" + hour + ":00:00")
@@ -147,8 +155,10 @@ def cyclones_tracks(data):
             print(year)
             if track["Index"] == index:
                 print(index)
-                tp_life_cycle, tp_progress, track_progression, tp_all, tp_i_acc = cyclone_track_calculations(tp, time_index,
-                lat_index, lon_index, tp_life_cycle, tp_progress, track_progression, tp_all, tp_israel_hour, lons, lats, tp_i_acc)
+                tp_life_cycle, tp_progress, track_progression, tp_all, tp_i_acc, tp_israel_hour = cyclone_track_calculations(
+                    tp, time_index,
+                    lat_index, lon_index, tp_life_cycle, tp_progress, track_progression, tp_all, tp_israel_hour, lons,
+                    lats, tp_i_acc)
             if track["Index"] != index:
                 index_list.append(index)
                 hours_all.append(len(tp_progress))
@@ -160,21 +170,32 @@ def cyclones_tracks(data):
                 for j in range(1, len(track_progression)):
                     track_progression[0] += np.array(track_progression[j])
 
-
                 tp_i_acc = israel_mask(tp_i_acc, is_polygon)
                 tp_i_acc.plot()
-                plt.show()
-                # tp_i_acc = xr.DataArray(np.zeros(1600).reshape(40, 40),
-                #                         dims=["longitude", "latitude"],
+                plt.savefig(
+                    'C:/Users/shrei/PycharmProjects/MasterProject/Plots/tp_israel_plot/' + str(
+                        track["Year"]) + "_" + str(index) + '.png')
+                plt.close()
+
+                # tp_i_acc = xr.DataArray(np.zeros(119).reshape(17, 7),
+                #                         dims=["latitude", "longitude"],
                 #                         coords=(
-                #                             np.arange(29, 39, 0.25),
-                #                             np.arange(26.25, 36.25, 0.25)))
-                tp_i_acc = xr.DataArray(np.zeros(119).reshape(17, 7),
+                #                             np.arange(29.5, 33.75, 0.25),
+                #                             np.arange(34.25, 36, 0.25)))
+                tp_i_acc = xr.DataArray(np.zeros(225).reshape(15, 15),
                                         dims=["latitude", "longitude"],
                                         coords=(
-                                            np.arange(29.5, 33.75, 0.25),
-                                            np.arange(34.25, 36, 0.25)))
+                                            np.arange(29.75, 33.5, 0.25),
+                                            np.arange(33, 36.75, 0.25)))
 
+                t = [i for i in range(0, len(tp_israel_hour))]
+                plt.plot(t, tp_israel_hour)
+                plt.savefig(
+                    'C:/Users/shrei/PycharmProjects/MasterProject/Plots/tp_israel_hour/' + str(track["Year"]) + "_" +
+                    "tp_israel_hour" + "_" + str(index) + '.png')
+                plt.close()
+
+                tp_israel_hour = []
                 # xr.DataArray(track_progression[0]).plot()
                 # plt.savefig(
                 #     'C:/Users/shrei/PycharmProjects/MasterProject/Plots/Merge/' +str(track["Year"])+"_"+
@@ -205,8 +226,10 @@ def cyclones_tracks(data):
                 track_progression = []
 
                 index = track["Index"]
-                tp_life_cycle, tp_progress, track_progression, tp_all, tp_i_acc = cyclone_track_calculations(tp, time_index,
-                lat_index, lon_index, tp_life_cycle, tp_progress, track_progression, tp_all, tp_israel_hour, lons, lats, tp_i_acc)
+                tp_life_cycle, tp_progress, track_progression, tp_all, tp_i_acc, tp_israel_hour = cyclone_track_calculations(
+                    tp, time_index,
+                    lat_index, lon_index, tp_life_cycle, tp_progress, track_progression, tp_all, tp_israel_hour, lons,
+                    lats, tp_i_acc)
 
         if track["Year"] != year:
             year = int(track["Year"])
@@ -222,16 +245,32 @@ def cyclones_tracks(data):
             for j in range(1, len(track_progression)):
                 track_progression[0] += np.array(track_progression[j])
 
-
             tp_i_acc = israel_mask(tp_i_acc, is_polygon)
             tp_i_acc.plot()
-            plt.show()
+            plt.savefig(
+                'C:/Users/shrei/PycharmProjects/MasterProject/Plots/tp_israel_plot/' + str(track["Year"]) + "_" + str(
+                    index) + '.png')
+            plt.close()
 
-            tp_i_acc = xr.DataArray(np.zeros(119).reshape(17, 7),
+            # tp_i_acc = xr.DataArray(np.zeros(119).reshape(17, 7),
+            #                         dims=["latitude", "longitude"],
+            #                         coords=(
+            #                             np.arange(29.5, 33.75, 0.25),
+            #                             np.arange(34.25, 36, 0.25)))
+            tp_i_acc = xr.DataArray(np.zeros(225).reshape(15, 15),
                                     dims=["latitude", "longitude"],
                                     coords=(
-                                        np.arange(29.5, 33.75, 0.25),
-                                        np.arange(34.25, 36, 0.25)))
+                                        np.arange(29.75, 33.5, 0.25),
+                                        np.arange(33, 36.75, 0.25)))
+
+            t = [i for i in range(0, len(tp_israel_hour))]
+            plt.plot(t, tp_israel_hour)
+            plt.savefig(
+                'C:/Users/shrei/PycharmProjects/MasterProject/Plots/tp_israel_hour/' + str(track["Year"]) + "_" +
+                "tp_israel_hour" + "_" + str(index) + '.png')
+            plt.close()
+
+            tp_israel_hour = []
 
             # xr.DataArray(track_progression[0]).plot()
             # plt.savefig(
@@ -266,7 +305,15 @@ def cyclones_tracks(data):
             np_time = np.datetime64(str(int(track["Year"])) + "-" + month + "-" + day + "T" + hour + ":00:00")
             time_index = np.where(tp["time"] == np_time)[0][0]
             tp_life_cycle, tp_progress, track_progression, tp_all, tp_i_acc = cyclone_track_calculations(tp, time_index,
-                lat_index, lon_index, tp_life_cycle, tp_progress, track_progression, tp_all, tp_israel_hour, lons, lats, tp_i_acc)
+                                                                                                         lat_index,
+                                                                                                         lon_index,
+                                                                                                         tp_life_cycle,
+                                                                                                         tp_progress,
+                                                                                                         track_progression,
+                                                                                                         tp_all,
+                                                                                                         tp_israel_hour,
+                                                                                                         lons, lats,
+                                                                                                         tp_i_acc)
 
     # pd.DataFrame(tp_all).to_csv("C:/Users/shrei/PycharmProjects/MasterProject/tp_all.csv")
     # pd.DataFrame(tp_life_cycle_all).to_csv("C:/Users/shrei/PycharmProjects/MasterProject/tp_life_cycle_all.csv")
@@ -275,14 +322,14 @@ def cyclones_tracks(data):
     #               "Hours": hours_all,
     #               "tp_life_cycle": tp_life_cycle_all}).to_csv("C:/Users/shrei/PycharmProjects/MasterProject/All.csv")
 
+
 def cyclone_track_calculations(tp, time_index, lat_index, lon_index, tp_life_cycle, tp_progress, track_progression,
                                tp_all, tp_israel_hour, lons, lats, tp_i_acc):
     precipitation = tp[time_index, lat_index - 20:lat_index + 20,
                     lon_index - 20:lon_index + 20].sum(dim=["longitude", "latitude"])
 
     tp_i = tp[time_index, lat_index - 20:lat_index + 20,
-            lon_index - 20:lon_index + 20]
-
+           lon_index - 20:lon_index + 20]
 
     # if precipitation == 0:
     #     print(tp[time_index, lat_index - 20:lat_index + 20, lon_index - 20:lon_index + 20])
@@ -299,73 +346,38 @@ def cyclone_track_calculations(tp, time_index, lat_index, lon_index, tp_life_cyc
 
     x = lons[lon_index - 20: lon_index + 20]
     y = lats[lat_index - 20: lat_index + 20]
-    prep_in_israel = False
-    prep_in_israel_sum =0
+
+    prep_in_israel_sum = 0
+    prep_in_israel_hour_sum = 0
+
     for i in range(len(tp_i["latitude"])):
         for j in range(len(tp_i["longitude"])):
             p = Point(tp_i["longitude"][j], tp_i["latitude"][i])
             if p.within(is_polygon) and tp_i[np.where(tp_i["longitude"] == p.x)[0][0],
-                                                np.where(tp_i["latitude"] == p.y)[0][0]].data > 0:
-
+            np.where(tp_i["latitude"] == p.y)[0][0]].data > 0:
                 prep_in_israel_sum += tp_i[np.where(tp_i["longitude"] == p.x)[0][0],
-                                                np.where(tp_i["latitude"] == p.y)[0][0]].data
-                tp_israel_hour.append(tp_i[np.where(tp_i["longitude"] == p.x)[0][0],
-                                                np.where(tp_i["latitude"] == p.y)[0][0]].data)
+                np.where(tp_i["latitude"] == p.y)[0][0]].data
+
+                prep_in_israel_hour_sum += tp_i[np.where(tp_i["longitude"] == p.x)[0][0],
+                np.where(tp_i["latitude"] == p.y)[0][0]].data
 
                 tp_i_acc[np.where(tp_i_acc["latitude"] == p.y)[0][0],
-                                                np.where(tp_i_acc["longitude"] == p.x)[0][0]] +=  tp_i[np.where(tp_i["latitude"] == p.y)[0][0],
-                                                np.where(tp_i["longitude"] == p.x)[0][0]].data
+                np.where(tp_i_acc["longitude"] == p.x)[0][0]] += tp_i[np.where(tp_i["latitude"] == p.y)[0][0],
+                np.where(tp_i["longitude"] == p.x)[0][0]].data
 
-                # tp_i_acc = israel_mask(tp_i_acc, is_polygon)
-                # tp_i_acc.plot()
-                # plt.show()
+    tp_israel_hour.append(prep_in_israel_hour_sum)
 
-                print(tp_i[np.where(tp_i["latitude"] == p.y)[0][0],
-                                                np.where(tp_i["longitude"] == p.x)[0][0]].data)
-
-                prep_in_israel = True
-            else:
-                tp_israel_hour.append(0)
-    #             point = p
-    # if prep_in_israel:
-    #     map = Basemap(projection='cass', lat_0=32.6, lon_0=33.851612, width=2050000, height=1900000,
-    #                               resolution='l')
-    #
-    #     map.pcolor(x, y, np.squeeze(tp_i), cmap='jet')
-    #     map.scatter(p.x, p.y, latlon=True, s=30)
-    #     map.colorbar()
-    #     map.drawcoastlines()
-    #     map.drawcountries(zorder=1, color="black", linewidth=1)
-    #     plt.show()
-
-
-
-    return  tp_life_cycle, tp_progress, track_progression, tp_all, tp_i_acc
-
-def precipitation_in_israel(tp, lons, lats):
-    map = Basemap(projection='cass', lat_0=32.6, lon_0=30.851612, width=5050000, height=3900000,
-                  resolution='l')
-    lon, lat = np.meshgrid(lons, lats)
-    x, y = map(lon, lat)
-    map.plot(x=list(is_polygon.exterior.xy[0]), y=list(is_polygon.exterior.xy[1]), latlon=True)
-    map.pcolor(x, y, np.squeeze(tp[0]), cmap='jet')
-    map.colorbar()
-    map.drawcoastlines()
-    map.drawcountries(zorder=1, color="black", linewidth=1)
-    plt.show()
-    exit()
-
+    return tp_life_cycle, tp_progress, track_progression, tp_all, tp_i_acc, tp_israel_hour
 
 
 if __name__ == '__main__':
     cyclone_data, ims_data = arrange_data()
     cyclones_tracks(cyclone_data)
-    data, lons, lats = get_nc(1979)
+    # data, lons, lats = get_nc(1979)
     # tp_time_sum=data["tp"].sum(dim="time")
     # plot_tp(tp_time_sum,lons, lats)
     # tp_time_sum.plot()
     # plt.show()
-    tp_weighted = calculate_weighted(data, lons, lats)
-    tp_weighted.attrs['units'] = 'mm'
+    # tp_weighted = calculate_weighted(data, lons, lats)
+    # tp_weighted.attrs['units'] = 'mm'
     # region_prep_check(tp_weighted, lons, lats)
-    # precipitation_in_israel(tp_weighted, lons, lats)
