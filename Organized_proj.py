@@ -9,6 +9,7 @@ from Israel_mask import is_polygon, israel_coords
 from AccumulatePrepOnSt import hours, mean_reagion
 import pandas as pd
 import xarray as xr
+import paramiko
 
 
 def point_in_polygon(polygon, point):
@@ -95,76 +96,138 @@ def region_prep_check(tp_weighted, lons, lats):
 
 
 def cyclones_tracks(data):
-    year = 1979
-    d, lons, lats = get_nc(year)
-    tp = calculate_weighted(d, lons, lats)
-    index_list = []
-    index = 1
-    track_progression = []
+    # client = paramiko.SSHClient()
+    # client.set_missing_host_key_policy(paramiko.AutoAddPolicy)
+    # client.connect("132.66.102.172", username="shreibshtein", password="gilad051295")
 
-    hours_all = []
-    tp_progress_all = []
-    tp_life_cycle_all = []
-    tp_life_cycle = 0
-    tp_progress = []
+    years = [year for year in range(1979, 2021)]
+    months = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
+    all = 0
+    for year in years:
+        print(year)
+        for month in months:
+            print(month)
+            d, lons, lats = get_nc(year, month)
+            # tp = calculate_weighted(d, lons, lats)
+            index_list = []
 
-    tp_all = np.zeros([40, 40])
-    # tp_i_acc = xr.DataArray(np.zeros(119).reshape(17, 7),
-    #                         dims=["latitude", "longitude"],
-    #                         coords=(
-    #                             np.arange(29.5, 33.75, 0.25),
-    #                             np.arange(34.25, 36, 0.25)))
+            tp_all = np.zeros([40, 40])
 
-    tp_i_acc = xr.DataArray(np.zeros(225).reshape(15, 15),
-                            dims=["latitude", "longitude"],
-                            coords=(
-                                np.arange(29.75, 33.5, 0.25),
-                                np.arange(33, 36.75, 0.25)))
+            tp_i_acc = xr.DataArray(np.zeros(225).reshape(15, 15),
+                                    dims=["latitude", "longitude"],
+                                    coords=(
+                                        np.arange(29.75, 33.5, 0.25),
+                                        np.arange(33, 36.75, 0.25)))
 
-    continue_list = []
-    tp_israel_hour = []
-    for track in data.iloc:
+            filterd_data = data.loc[(data["Year"] == year) & (data["Month"] == int(month))]
+            last_index = filterd_data["Index"].iloc[-1]
 
-        lon_index = list(lons).index(track["Longitude"])
-        lat_index = list(lats).index(track["Latitude"])
+            for index in range(1, last_index + 1):
+                con = False
+                filterd_data = data.loc[(data["Year"] == year) & (data["Index"] == index)]
 
-        if lon_index < 20 or lon_index > len(lons) - 20 or lat_index < 20 or lat_index > len(lats) - 20:
-            if [track["Year"], track["Index"]] not in continue_list:
-                continue_list.append([track["Year"], track["Index"]])
-                print(continue_list)
-            continue
-        month = str(track["Month"])
-        if track["Month"] < 10:
-            month = "0" + month[0]
-        else:
-            month = month[0] + month[1]
-        day = str(track["Day"])
-        if track["Day"] < 10:
-            day = "0" + day[0]
-        else:
-            day = day[0] + day[1]
-        hour = str(track["Hour"])
-        if track["Hour"] < 10:
-            hour = "0" + hour[0]
-        else:
-            hour = hour[0] + hour[1]
+                for j in range(0, np.shape(filterd_data)[0]):
+                    if list(filterd_data["Longitude"])[j] > 35 and list(filterd_data["Longitude"])[j] < 40 and \
+                            list(filterd_data["Latitude"])[j] > 30 and list(filterd_data["Latitude"])[j] < 40:
+                        con = True
+                if con:
 
-        if track["Year"] == year:
-            np_time = np.datetime64(str(int(track["Year"])) + "-" + month + "-" + day + "T" + hour + ":00:00")
-            time_index = np.where(tp["time"] == np_time)[0][0]
-            print(year)
-            if track["Index"] == index:
-                print(index)
-                tp_life_cycle, tp_progress, track_progression, tp_all, tp_i_acc, tp_israel_hour = cyclone_track_calculations(
-                    tp, time_index,
-                    lat_index, lon_index, tp_life_cycle, tp_progress, track_progression, tp_all, tp_israel_hour, lons,
-                    lats, tp_i_acc)
-            if track["Index"] != index:
+                    track_progression = []
+                    hours_all = []
+                    tp_progress_all = []
+                    tp_life_cycle_all = []
+                    tp_life_cycle = 0
+                    tp_progress = []
+                    tp_israel_hour = []
+                    print(index)
+                    for track in filterd_data.loc[filterd_data["Index"] == index].iloc:
+                        " lon index 15"
+                        lon_index = list(lons).index(track["Longitude"])
+                        lat_index = list(lats).index(track["Latitude"])
+
+                        month_track = str(track["Month"])
+
+                        # months str correction
+                        if track["Month"] < 10:
+                            month_track = "0" + month_track[0]
+                        else:
+                            month_track = month_track[0] + month_track[1]
+                        day = str(track["Day"])
+                        if track["Day"] < 10:
+                            day = "0" + day[0]
+                        else:
+                            day = day[0] + day[1]
+                        hour = str(track["Hour"])
+                        if track["Hour"] < 10:
+                            hour = "0" + hour[0]
+                        else:
+                            hour = hour[0] + hour[1]
+
+                        np_time = np.datetime64(str(int(track["Year"])) + "-" + month + "-" + day + "T" + hour + ":00:00")
+
+                        tp = calculate_weighted(d.isel(time=np.where(d["time"] == np_time)[0][0],
+                                                                                          longitude=[i for i in range(lon_index - 20, lon_index + 20)],
+                                                                                          latitude=[i for i in range(lat_index - 20, lat_index + 20)])
+                                                                                   , lons[lon_index - 20:lon_index + 20],
+                                                                                   lats[lat_index - 20:lat_index + 20])
+
+                        tp_life_cycle, tp_progress, track_progression, tp_all, tp_i_acc, tp_israel_hour, all = cyclone_track_calculations(
+                                                               tp,
+                                                               lat_index, lon_index, tp_life_cycle, tp_progress, track_progression, tp_all, tp_israel_hour,
+                                                               lons,
+                                                               lats, tp_i_acc, all)
+
+                    # if lon_index > 19 and lon_index < 1421:
+                    #     tp = calculate_weighted(d.isel(time=np.where(d["time"] == np_time)[0][0],
+                    #                                    longitude=[i for i in range(lon_index - 20, lon_index + 20)],
+                    #                                    latitude=[i for i in range(lat_index - 20, lat_index + 20)])
+                    #                             , lons[lon_index - 20:lon_index + 20],
+                    #                             lats[lat_index - 20:lat_index + 20])
+                    #
+                    #     tp_life_cycle, tp_progress, track_progression, tp_all, tp_i_acc, tp_israel_hour = cyclone_track_calculations(
+                    #         tp,
+                    #         lat_index, lon_index, tp_life_cycle, tp_progress, track_progression, tp_all, tp_israel_hour,
+                    #         lons,
+                    #         lats, tp_i_acc)
+                    #
+                    # if (lon_index < 20):
+                    #     lon = [i for i in range(0, lon_index + 20)]
+                    #     rest = [-i for i in range((20 - lon_index), 0, -1)]
+                    #     lon = rest + lon
+                    #
+                    #     lons_tp = list(lons[-(20 - lon_index):-1]) + list(lons[0:lon_index + 21])
+                    #     tp = calculate_weighted(d.isel(time=np.where(d["time"] == np_time)[0][0],
+                    #                                    longitude=lon,
+                    #                                    latitude=[i for i in range(lat_index - 20, lat_index + 20)])
+                    #                             , lons_tp, lats[lat_index - 20:lat_index + 20])
+                    #
+                    #     tp_life_cycle, tp_progress, track_progression, tp_all, tp_i_acc, tp_israel_hour = cyclone_track_calculations(
+                    #         tp,
+                    #         lat_index, lon_index, tp_life_cycle, tp_progress, track_progression, tp_all, tp_israel_hour,
+                    #         lons,
+                    #         lats, tp_i_acc)
+                    #
+                    # if (lon_index > 1420):
+                    #     lon = [i for i in range(lon_index - 20, 1440)]
+                    #     rest = [i for i in range(0, 20 - (1440 - lon_index))]
+                    #     lon = lon + rest
+                    #
+                    #     lons_tp = list(lons[lon_index - 20:1440]) + list(lons[0:20 - (1440 - lon_index)])
+                    #     tp = calculate_weighted(d.isel(time=np.where(d["time"] == np_time)[0][0],
+                    #                                    longitude=lon,
+                    #                                    latitude=[i for i in range(lat_index - 20, lat_index + 20)])
+                    #                             , lons_tp, lats[lat_index - 20:lat_index + 20])
+
+                        # tp_life_cycle, tp_progress, track_progression, tp_all, tp_i_acc, tp_israel_hour = cyclone_track_calculations(
+                        #     tp,
+                        #     lat_index, lon_index, tp_life_cycle, tp_progress, track_progression, tp_all, tp_israel_hour,
+                        #     lons,
+                        #     lats, tp_i_acc)
+
                 index_list.append(index)
                 hours_all.append(len(tp_progress))
 
                 tp_life_cycle_all.append(tp_life_cycle)
-                tp_life_cycle = 0
                 tp_progress_all.append(tp_progress)
                 track_progression[0] = np.array(track_progression[0])
                 for j in range(1, len(track_progression)):
@@ -177,32 +240,28 @@ def cyclones_tracks(data):
                         track["Year"]) + "_" + str(index) + '.png')
                 plt.close()
 
-                # tp_i_acc = xr.DataArray(np.zeros(119).reshape(17, 7),
+                # tp_i_acc = xr.DataArray(np.zeros(225).reshape(15, 15),
                 #                         dims=["latitude", "longitude"],
                 #                         coords=(
-                #                             np.arange(29.5, 33.75, 0.25),
-                #                             np.arange(34.25, 36, 0.25)))
-                tp_i_acc = xr.DataArray(np.zeros(225).reshape(15, 15),
-                                        dims=["latitude", "longitude"],
-                                        coords=(
-                                            np.arange(29.75, 33.5, 0.25),
-                                            np.arange(33, 36.75, 0.25)))
+                #                             np.arange(29.75, 33.5, 0.25),
+                #                             np.arange(33, 36.75, 0.25)))
 
-                t = [i for i in range(0, len(tp_israel_hour))]
-                plt.plot(t, tp_israel_hour)
-                plt.savefig(
-                    'C:/Users/shrei/PycharmProjects/MasterProject/Plots/tp_israel_hour/' + str(track["Year"]) + "_" +
-                    "tp_israel_hour" + "_" + str(index) + '.png')
-                plt.close()
-
-                tp_israel_hour = []
+                # t = [i for i in range(0, len(tp_israel_hour))]
+                # plt.plot(t, tp_israel_hour)
+                # plt.savefig(
+                #     'C:/Users/shrei/PycharmProjects/MasterProject/Plots/tp_israel_hour/' + str(
+                #         track["Year"]) + "_" +
+                #     "tp_israel_hour" + "_" + str(index) + '.png')
+                # plt.close()
+                #
+                # tp_israel_hour = []
                 # xr.DataArray(track_progression[0]).plot()
                 # plt.savefig(
-                #     'C:/Users/shrei/PycharmProjects/MasterProject/Plots/Merge/' +str(track["Year"])+"_"+
+                #     'C:/Users/shrei/PycharmProjects/MasterProject/Plots/Merge/' + str(track["Year"]) + "_" +
                 #     "MERGE" + "_" + str(index) + '.png')
                 # plt.close()
                 #
-                # xr.DataArray(track_progression[0]/len(tp_progress)).plot()
+                # xr.DataArray(track_progression[0] / len(tp_progress)).plot()
                 # plt.savefig(
                 #     'C:/Users/shrei/PycharmProjects/MasterProject/Plots/Hour_mean/' + str(track["Year"]) + "_" +
                 #     "HourMean" + "_" + str(index) + '.png')
@@ -211,138 +270,29 @@ def cyclones_tracks(data):
                 # t = [i for i in range(0, len(tp_progress))]
                 # plt.plot(t, tp_progress)
                 # plt.savefig(
-                #     'C:/Users/shrei/PycharmProjects/MasterProject/Plots/Tp_Progress/' + str(track["Year"]) + "_" +
+                #     'C:/Users/shrei/PycharmProjects/MasterProject/Plots/Tp_Progress/' + str(
+                #         track["Year"]) + "_" +
                 #     "TpProgress" + "_" + str(index) + '.png')
                 # plt.close()
                 #
-                # plt.contourf(tp_all)
-                # plt.colorbar()
-                # plt.savefig(
-                #     'C:/Users/shrei/PycharmProjects/MasterProject/Plots/tp_all/' + str(track["Year"]) + " " + str(
-                #         index) + '.png')
-                # plt.close()
-
-                tp_progress = []
-                track_progression = []
-
-                index = track["Index"]
-                tp_life_cycle, tp_progress, track_progression, tp_all, tp_i_acc, tp_israel_hour = cyclone_track_calculations(
-                    tp, time_index,
-                    lat_index, lon_index, tp_life_cycle, tp_progress, track_progression, tp_all, tp_israel_hour, lons,
-                    lats, tp_i_acc)
-
-        if track["Year"] != year:
-            year = int(track["Year"])
-            data, lons, lats = get_nc(year)
-            tp = calculate_weighted(data, lons, lats)
-            index_list.append(index)
-            hours_all.append(len(tp_progress))
-
-            tp_life_cycle_all.append(tp_life_cycle)
-            tp_life_cycle = 0
-            tp_progress_all.append(tp_progress)
-            track_progression[0] = np.array(track_progression[0])
-            for j in range(1, len(track_progression)):
-                track_progression[0] += np.array(track_progression[j])
-
-            tp_i_acc = israel_mask(tp_i_acc, is_polygon)
-            tp_i_acc.plot()
+            plt.contourf(tp_all/all)
+            plt.colorbar()
             plt.savefig(
-                'C:/Users/shrei/PycharmProjects/MasterProject/Plots/tp_israel_plot/' + str(track["Year"]) + "_" + str(
-                    index) + '.png')
+                    'C:/Users/shrei/PycharmProjects/MasterProject/Plots/tp_all/' + '.png')
             plt.close()
-
-            # tp_i_acc = xr.DataArray(np.zeros(119).reshape(17, 7),
-            #                         dims=["latitude", "longitude"],
-            #                         coords=(
-            #                             np.arange(29.5, 33.75, 0.25),
-            #                             np.arange(34.25, 36, 0.25)))
-            tp_i_acc = xr.DataArray(np.zeros(225).reshape(15, 15),
-                                    dims=["latitude", "longitude"],
-                                    coords=(
-                                        np.arange(29.75, 33.5, 0.25),
-                                        np.arange(33, 36.75, 0.25)))
-
-            t = [i for i in range(0, len(tp_israel_hour))]
-            plt.plot(t, tp_israel_hour)
-            plt.savefig(
-                'C:/Users/shrei/PycharmProjects/MasterProject/Plots/tp_israel_hour/' + str(track["Year"]) + "_" +
-                "tp_israel_hour" + "_" + str(index) + '.png')
-            plt.close()
-
-            tp_israel_hour = []
-
-            # xr.DataArray(track_progression[0]).plot()
-            # plt.savefig(
-            #     'C:/Users/shrei/PycharmProjects/MasterProject/Plots/Merge/' + str(track["Year"]) + "_" +
-            #     "MERGE" + "_" + str(index) + '.png')
-            # plt.close()
             #
-            #
-            # xr.DataArray(track_progression[0] / len(tp_progress)).plot()
-            # plt.savefig(
-            #     'C:/Users/shrei/PycharmProjects/MasterProject/Plots/Hour_mean/' + str(track["Year"]) + "_" +
-            #     "HourMean" + "_" + str(index) + '.png')
-            # plt.close()
-            #
-            # t = [i for i in range(0, len(tp_progress))]
-            # plt.plot(t, tp_progress)
-            # plt.savefig(
-            #     'C:/Users/shrei/PycharmProjects/MasterProject/Plots/Tp_Progress/' + str(track["Year"]) + "_" +
-            #     "TpProgress" + "_" + str(index) + '.png')
-            # plt.close()
-            #
-            # plt.contourf(tp_all)
-            # plt.colorbar()
-            # plt.savefig(
-            #     'C:/Users/shrei/PycharmProjects/MasterProject/Plots/tp_all/'+ str(track["Year"])+" "+str(index)+'.png')
-            # plt.close()
-
-            tp_progress = []
-            track_progression = []
-
-            index = track["Index"]
-            np_time = np.datetime64(str(int(track["Year"])) + "-" + month + "-" + day + "T" + hour + ":00:00")
-            time_index = np.where(tp["time"] == np_time)[0][0]
-            tp_life_cycle, tp_progress, track_progression, tp_all, tp_i_acc = cyclone_track_calculations(tp, time_index,
-                                                                                                         lat_index,
-                                                                                                         lon_index,
-                                                                                                         tp_life_cycle,
-                                                                                                         tp_progress,
-                                                                                                         track_progression,
-                                                                                                         tp_all,
-                                                                                                         tp_israel_hour,
-                                                                                                         lons, lats,
-                                                                                                         tp_i_acc)
-
-    # pd.DataFrame(tp_all).to_csv("C:/Users/shrei/PycharmProjects/MasterProject/tp_all.csv")
-    # pd.DataFrame(tp_life_cycle_all).to_csv("C:/Users/shrei/PycharmProjects/MasterProject/tp_life_cycle_all.csv")
-    # pd.DataFrame(tp_progress_all).to_csv("C:/Users/shrei/PycharmProjects/MasterProject/tp_progress_all.csv")
-    # pd.DataFrame({"Index": index_list,
-    #               "Hours": hours_all,
-    #               "tp_life_cycle": tp_life_cycle_all}).to_csv("C:/Users/shrei/PycharmProjects/MasterProject/All.csv")
 
 
-def cyclone_track_calculations(tp, time_index, lat_index, lon_index, tp_life_cycle, tp_progress, track_progression,
-                               tp_all, tp_israel_hour, lons, lats, tp_i_acc):
-    precipitation = tp[time_index, lat_index - 20:lat_index + 20,
-                    lon_index - 20:lon_index + 20].sum(dim=["longitude", "latitude"])
-
-    tp_i = tp[time_index, lat_index - 20:lat_index + 20,
-           lon_index - 20:lon_index + 20]
-
-    # if precipitation == 0:
-    #     print(tp[time_index, lat_index - 20:lat_index + 20, lon_index - 20:lon_index + 20])
-    #     print("g")
+def cyclone_track_calculations(tp, lat_index, lon_index, tp_life_cycle, tp_progress, track_progression,
+                               tp_all, tp_israel_hour, lons, lats, tp_i_acc, all):
+    precipitation = tp.sum(dim=["longitude", "latitude"])
+    all += float(precipitation)
     tp_life_cycle += float(precipitation)
-    # print(float(precipitation))
-    # print(" ")
-    # print(tp_life_cycle)
-    # print(" ")
+
     tp_progress.append(float(precipitation.data))
     # print(tp_progress)
-    track_progression.append(tp[time_index, lat_index - 20:lat_index + 20, lon_index - 20:lon_index + 20])
-    tp_all += np.array(tp[time_index, lat_index - 20:lat_index + 20, lon_index - 20:lon_index + 20])
+    track_progression.append(tp)
+    tp_all += np.array(tp)
 
     x = lons[lon_index - 20: lon_index + 20]
     y = lats[lat_index - 20: lat_index + 20]
@@ -350,29 +300,69 @@ def cyclone_track_calculations(tp, time_index, lat_index, lon_index, tp_life_cyc
     prep_in_israel_sum = 0
     prep_in_israel_hour_sum = 0
 
-    for i in range(len(tp_i["latitude"])):
-        for j in range(len(tp_i["longitude"])):
-            p = Point(tp_i["longitude"][j], tp_i["latitude"][i])
-            if p.within(is_polygon) and tp_i[np.where(tp_i["longitude"] == p.x)[0][0],
-            np.where(tp_i["latitude"] == p.y)[0][0]].data > 0:
-                prep_in_israel_sum += tp_i[np.where(tp_i["longitude"] == p.x)[0][0],
-                np.where(tp_i["latitude"] == p.y)[0][0]].data
+    if 110 < lon_index < 160 and lat_index > 200 and lat_index < 240:
+        for i in range(len(tp["latitude"])):
+            for j in range(len(tp["longitude"])):
+                p = Point(tp["longitude"][j], tp["latitude"][i])
+                if p.within(is_polygon) and tp[np.where(tp["longitude"] == p.x)[0][0],
+                np.where(tp["latitude"] == p.y)[0][0]].data > 0:
+                    prep_in_israel_sum += tp[np.where(tp["longitude"] == p.x)[0][0],
+                    np.where(tp["latitude"] == p.y)[0][0]].data
 
-                prep_in_israel_hour_sum += tp_i[np.where(tp_i["longitude"] == p.x)[0][0],
-                np.where(tp_i["latitude"] == p.y)[0][0]].data
+                    prep_in_israel_hour_sum += tp[np.where(tp["longitude"] == p.x)[0][0],
+                    np.where(tp["latitude"] == p.y)[0][0]].data
 
-                tp_i_acc[np.where(tp_i_acc["latitude"] == p.y)[0][0],
-                np.where(tp_i_acc["longitude"] == p.x)[0][0]] += tp_i[np.where(tp_i["latitude"] == p.y)[0][0],
-                np.where(tp_i["longitude"] == p.x)[0][0]].data
+                    tp_i_acc[np.where(tp_i_acc["latitude"] == p.y)[0][0],
+                    np.where(tp_i_acc["longitude"] == p.x)[0][0]] += tp[np.where(tp["latitude"] == p.y)[0][0],
+                    np.where(tp["longitude"] == p.x)[0][0]].data
 
     tp_israel_hour.append(prep_in_israel_hour_sum)
 
-    return tp_life_cycle, tp_progress, track_progression, tp_all, tp_i_acc, tp_israel_hour
+    return tp_life_cycle, tp_progress, track_progression, tp_all, tp_i_acc, tp_israel_hour, all
+
+
+def plot_cyclones(data):
+    map = Basemap(projection='cass', lat_0=33.5, lon_0=32.851612, width=50000000, height=50000000,
+                  resolution='l')
+    years = [y for y in range(1979, 2021)]
+    index_list = []
+    for y in years:
+        print(y)
+
+        for index in range(1, data.loc[data["Year"] == y]["Index"].iloc[-1] + 1):
+            con = False
+            filterd_data = data.loc[(data["Year"] == y) & (data["Index"] == index)]
+
+            for j in range(0, np.shape(filterd_data)[0]):
+                '''(filterd_data.loc[filterd_data["Longitude"][j] > 20] or filterd_data.loc[
+                    filterd_data["Longitude"][j] < 45]) and (
+                            filterd_data.loc[filterd_data["Latitude"][j] > 25] or filterd_data.loc[
+                        filterd_data["Latitude"][j] < 45])'''
+                print(list(filterd_data["Longitude"])[j])
+                if list(filterd_data["Longitude"])[j] > 35 and list(filterd_data["Longitude"])[j] < 40 and list(filterd_data["Latitude"])[j] > 30 and list(filterd_data["Latitude"])[j] < 40:
+                    con = True
+            if con:
+                print(filterd_data)
+                index_list.append(index)
+                data_yi = data.loc[(data["Year"] == y) & (data["Index"] == index)]
+                longitude_yi = data_yi["Longitude"]
+                latitude_yi = data_yi["Latitude"]
+                map.plot(np.array(longitude_yi), np.array(latitude_yi), latlon=True, linewidth=5)
+
+    print(len(index_list))
+    map.drawcoastlines()
+    # map.drawmeridians(np.arange(-90, 90, 5), labels=[True, False, False, True])
+    # map.drawparallels(np.arange(-180, 180, 5), labels=[True, False, False, False])
+    plt.show()
+
+
+
 
 
 if __name__ == '__main__':
-    cyclone_data, ims_data = arrange_data()
-    cyclones_tracks(cyclone_data)
+    cyclone_data, ims_data = arrange_data()  # Tracks of cyclones
+    # plot_cyclones(cyclone_data)
+    cyclones_tracks(cyclone_data)  # For cyclone track...
     # data, lons, lats = get_nc(1979)
     # tp_time_sum=data["tp"].sum(dim="time")
     # plot_tp(tp_time_sum,lons, lats)

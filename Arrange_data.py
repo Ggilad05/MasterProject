@@ -1,8 +1,8 @@
-import matplotlib.pyplot as plt
 import pandas as pd
 import glob
 import xarray as xr
-import rioxarray as riox
+from netCDF4 import Dataset
+import time
 
 
 
@@ -28,8 +28,23 @@ def arrange_data():
     return main_data, IMS_data
 
 
-def get_nc(year):
-    fn = "C:/Users/shrei/PycharmProjects/MasterProject/1979_2020/" + str(year) + ".nc"
+def get_nc(year, month):
+    number_of_days = pd.Timestamp(year=year, month=int(month), day=1).daysinmonth
+    # sftp_client = client.open_sftp()
+    # # ncfile = sftp_client.open("/data/iacdc/ECMWF/ERA5/pr_1hrPlev_reanalysis_ERA5_19790101_19790131.nc")
+    # ncfile = sftp_client.open("/data/iacdc/ECMWF/ERA5/pr_1hrPlev_reanalysis_ERA5_"
+    #                           +str(year)+month+"01_"+str(year)+month+str(number_of_days)+".nc")
+    #
+    # #
+    # ncfile.prefetch()
+    # b_ncfile = ncfile.read()
+    #
+    # # ****
+    # nc = Dataset("nc", memory=b_ncfile, format="NETCDF4")
+    # ds = xr.open_dataset(xr.backends.NetCDF4DataStore(nc), chunks='auto')
+
+    # fn = "C:/Users/shrei/PycharmProjects/MasterProject/1979_2020/" + str(year) + ".nc"T
+    fn = "D:/ERA5/pr_1hrPlev_reanalysis_ERA5_"+str(year)+month+"01_"+str(year)+month+str(number_of_days)+".nc"
     ds = xr.open_dataset(fn)
 
     # Load lat and lon

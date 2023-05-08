@@ -9,7 +9,6 @@ def weighted_area_grid(lat, lon):
 
 
 def calculate_weighted(ds, lons, lats):
-    xlon, ylat = np.meshgrid(lons, lats)
     weighted_area = weighted_area_grid(lats, lons)
 
     """  Units of -->tp[m]: The depth of water on a p
