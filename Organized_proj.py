@@ -339,7 +339,7 @@ def plot_cyclones(data):
                             filterd_data.loc[filterd_data["Latitude"][j] > 25] or filterd_data.loc[
                         filterd_data["Latitude"][j] < 45])'''
                 print(list(filterd_data["Longitude"])[j])
-                if list(filterd_data["Longitude"])[j] > 35 and list(filterd_data["Longitude"])[j] < 40 and list(filterd_data["Latitude"])[j] > 30 and list(filterd_data["Latitude"])[j] < 40:
+                if list(filterd_data["Longitude"])[j] > 30 and list(filterd_data["Longitude"])[j] < 40 and list(filterd_data["Latitude"])[j] > 28 and list(filterd_data["Latitude"])[j] < 40:
                     con = True
             if con:
                 print(filterd_data)
@@ -361,8 +361,8 @@ def plot_cyclones(data):
 
 if __name__ == '__main__':
     cyclone_data, ims_data = arrange_data()  # Tracks of cyclones
-    # plot_cyclones(cyclone_data)
-    cyclones_tracks(cyclone_data)  # For cyclone track...
+    plot_cyclones(cyclone_data)
+    # cyclones_tracks(cyclone_data)  # For cyclone track...
     # data, lons, lats = get_nc(1979)
     # tp_time_sum=data["tp"].sum(dim="time")
     # plot_tp(tp_time_sum,lons, lats)
