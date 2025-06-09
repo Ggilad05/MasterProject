@@ -5,11 +5,11 @@ from Arrange_data import arrange_data, get_nc
 from Weighted_variable import calculate_weighted
 from Plots_fun import plot_tp
 from shapely.geometry import Polygon, Point
-from Israel_mask import is_polygon, israel_coords
-from AccumulatePrepOnSt import hours, mean_reagion
+# from Israel_mask import is_polygon, israel_coords
+# from AccumulatePrepOnSt import hours, mean_reagion
 import pandas as pd
 import xarray as xr
-import paramiko
+from composite import composite_pr
 
 
 def point_in_polygon(polygon, point):
@@ -96,9 +96,6 @@ def region_prep_check(tp_weighted, lons, lats):
 
 
 def cyclones_tracks(data):
-    # client = paramiko.SSHClient()
-    # client.set_missing_host_key_policy(paramiko.AutoAddPolicy)
-    # client.connect("132.66.102.172", username="shreibshtein", password="gilad051295")
 
     years = [year for year in range(1979, 2021)]
     months = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
@@ -322,10 +319,12 @@ def cyclone_track_calculations(tp, lat_index, lon_index, tp_life_cycle, tp_progr
 
 
 def plot_cyclones(data):
-    map = Basemap(projection='cass', lat_0=33.5, lon_0=32.851612, width=50000000, height=50000000,
+    map = Basemap(projection='cass', lat_0=33.5, lon_0=32.851612, width=8000000, height=8000000,
                   resolution='l')
     years = [y for y in range(1979, 2021)]
     index_list = []
+    f_y = [1987, 1989, 2004, 2005, 2015, 2016]
+    f_index = [577, 624, 41, 575, 617, 514]
     for y in years:
         print(y)
 
@@ -347,22 +346,31 @@ def plot_cyclones(data):
                 data_yi = data.loc[(data["Year"] == y) & (data["Index"] == index)]
                 longitude_yi = data_yi["Longitude"]
                 latitude_yi = data_yi["Latitude"]
+                # for w in range(len(f_y)):
+                #     if y == f_y[w] and index == f_index[w]:
                 map.plot(np.array(longitude_yi), np.array(latitude_yi), latlon=True, linewidth=5)
+    map.drawcoastlines()
+    plt.savefig(
+                            '/data/shreibshtein/plots/' + str(
+                                y) + "_" + str(index) + '.png')
+    plt.close()
 
     print(len(index_list))
-    map.drawcoastlines()
+    # map.drawcoastlines()
     # map.drawmeridians(np.arange(-90, 90, 5), labels=[True, False, False, True])
     # map.drawparallels(np.arange(-180, 180, 5), labels=[True, False, False, False])
-    plt.show()
+    # plt.show()
+
 
 
 
 
 
 if __name__ == '__main__':
-    cyclone_data, ims_data = arrange_data()  # Tracks of cyclones
-    plot_cyclones(cyclone_data)
+    cyclone_data = arrange_data()  # Tracks of cyclones
+    # plot_cyclones(cyclone_data)
     # cyclones_tracks(cyclone_data)  # For cyclone track...
+    composite_pr(cyclone_data.copy())
     # data, lons, lats = get_nc(1979)
     # tp_time_sum=data["tp"].sum(dim="time")
     # plot_tp(tp_time_sum,lons, lats)

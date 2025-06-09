@@ -3,7 +3,7 @@ import glob
 import xarray as xr
 from netCDF4 import Dataset
 import time
-
+import numpy as np
 
 
 def arrange_data():
@@ -17,39 +17,27 @@ def arrange_data():
                                                            "Hour", "Lowest MSLP value"])
         main_data = pd.concat([main_data, data])
 
-    IMS_data = pd.read_csv('C:/Users/shrei/PycharmProjects/MasterProject/IMS_GILAD.csv')
 
-
-    # IMS_new_data = pd.DataFrame(columns= ["Year"," Month", "Day","Mean MSLP"
-    #     , "Accumulate precipitation", "# IMS > 0","% StationRain/ TotalStations"])
-
-    # print(main_data.loc[(main_data["Index"] == 1) & (main_data["Year"] == 2000)].iloc[0][2])
-
-    return main_data, IMS_data
+    return main_data
 
 
 def get_nc(year, month):
     number_of_days = pd.Timestamp(year=year, month=int(month), day=1).daysinmonth
-    # sftp_client = client.open_sftp()
-    # # ncfile = sftp_client.open("/data/iacdc/ECMWF/ERA5/pr_1hrPlev_reanalysis_ERA5_19790101_19790131.nc")
-    # ncfile = sftp_client.open("/data/iacdc/ECMWF/ERA5/pr_1hrPlev_reanalysis_ERA5_"
-    #                           +str(year)+month+"01_"+str(year)+month+str(number_of_days)+".nc")
-    #
-    # #
-    # ncfile.prefetch()
-    # b_ncfile = ncfile.read()
-    #
-    # # ****
-    # nc = Dataset("nc", memory=b_ncfile, format="NETCDF4")
-    # ds = xr.open_dataset(xr.backends.NetCDF4DataStore(nc), chunks='auto')
 
-    # fn = "C:/Users/shrei/PycharmProjects/MasterProject/1979_2020/" + str(year) + ".nc"T
-    fn = "D:/ERA5/pr_1hrPlev_reanalysis_ERA5_"+str(year)+month+"01_"+str(year)+month+str(number_of_days)+".nc"
-    ds = xr.open_dataset(fn)
+    fn_tp = "/data/iacdc/ECMWF/ERA5/hourly_0.25_global_1000-200hPa/pr/pr_yr_reanalysis_ERA5_" + str(
+        year) + month + "01_" + str(year) + month + str(number_of_days) + ".nc"
+    # fn_slp = "/data/iacdc/ECMWF/ERA5/hourly_0.25_global_1000-200hPa/psl/psl_1hrPlev_reanalysis_ERA5_" + str(
+    #     year) + month + "01_" + str(year) + month + str(number_of_days) + ".nc"
+    # fn_ta850 = "/data/iacdc/ECMWF/ERA5/hourly_0.25_global_1000-200hPa/ta850/ta850_1hrPlev_reanalysis_ERA5_" + str(year) + month + "01_" + str(
+    #     year) + month + str(number_of_days) + ".nc"
+
+    tp = xr.open_dataset(fn_tp)
+    # slp = xr.open_dataset(fn_slp)
+    # ta850 = xr.open_dataset(fn_ta850)
 
     # Load lat and lon
-    lats = ds.variables['latitude'][:]
-    ds = ds.assign_coords(longitude=(((ds.longitude + 180) % 360) - 180))
-    lons = ds.variables['longitude'][:]
+    lats = tp.variables['latitude'][:]
+    lons = tp.variables['longitude'][:]
 
-    return ds, lons, lats
+    # return tp, slp, ta850, lons, lats
+    return tp, lons, lats

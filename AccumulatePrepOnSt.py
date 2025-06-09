@@ -41,6 +41,9 @@ for n in st:
             s += data[n][i]
             curr_h += 1
 
+
+print(st)
+exit()
 mean_reagion["1"].append(np.array([sum(i) for i in zip(st["Kefar Blum"], st["Kefar Giladi"])])/2)
 mean_reagion["4"].append(np.array([sum(i) for i in zip(st["Jerusalem Centre"], st["Jerusalem Givat Ram"]
                                                        ,st["Maale Adummim"])])/3)

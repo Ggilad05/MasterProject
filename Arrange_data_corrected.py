@@ -1,12 +1,14 @@
 import pandas as pd
 import datetime
 import xarray as xr
+import numpy as np
+
 
 def read_trajectories(year):
     """year  - The list year for which I want the storm tracks"""
 
-    # file_path = 'C:/Users/shrei/PycharmProjects/MasterProject/tracks_ERA5_1979-2020_0.25deg_1hr/' + str(year) + '.txt'
-    file_path = '/data/shreibshtein/tracks_ERA5_1979-2020_0.25deg_1hr/' + str(year) + '.txt'
+    file_path = 'C:/Users/shrei/PycharmProjects/MasterProject/tracks_ERA5_1979-2020_0.25deg_1hr/' + str(year) + '.txt'
+    # file_path = '/data/shreibshtein/tracks_ERA5_1979-2020_0.25deg_1hr/' + str(year) + '.txt'
 
     data = pd.read_table(file_path, sep=" ", names=["Index", "Longitude", "Latitude", "Year", "Month", "Day",
                                                     "Hour", "Lowest MSLP value"])
@@ -55,28 +57,67 @@ def read_trajectories(year):
     # print(data_grouped.where(data_grouped["Index"] ==1).iloc[0]["Diff G-P"])
     # print(data_grouped.where(data_grouped["Index"] == 1).iloc[0])
 
-
     return data_grouped
 
-def get_nc(year, month):
+
+def get_nc(year, month, reanalysis_dir):
+    month = float(month)
     number_of_days = pd.Timestamp(year=year, month=int(month), day=1).daysinmonth
+    if isinstance(month, float):
+        if month == 1.0:
+            month = "01"
+        if month == 2.0:
+            month = "02"
+        if month == 3.0:
+            month = "03"
+        if month == 4.0:
+            month = "04"
+        if month == 5.0:
+            month = "05"
+        if month == 6.0:
+            month = "06"
+        if month == 7.0:
+            month = "07"
+        if month == 8.0:
+            month = "08"
+        if month == 9.0:
+            month = "09"
+        if month == 10:
+            month = "10"
+        if month == 11:
+            month = "11"
+        if month == 12:
+            month = "12"
 
-    fn_tp = "/data/iacdc/ECMWF/ERA5/hourly_0.25_global_1000-200hPa/pr/pr_yr_reanalysis_ERA5_" + str(
-        year) + month + "01_" + str(year) + month + str(number_of_days) + ".nc"
-    # fn_slp = "/data/iacdc/ECMWF/ERA5/hourly_0.25_global_1000-200hPa/psl/psl_1hrPlev_reanalysis_ERA5_" + str(
+    # fn_tp = "/data/iacdc/ECMWF/ERA5/hourly_0.25_global_1000-200hPa/pr/pr_yr_reanalysis_ERA5_" + str(
     #     year) + month + "01_" + str(year) + month + str(number_of_days) + ".nc"
-    # fn_ta850 = "/data/iacdc/ECMWF/ERA5/hourly_0.25_global_1000-200hPa/ta850/ta850_1hrPlev_reanalysis_ERA5_" + str(year) + month + "01_" + str(
-    #     year) + month + str(number_of_days) + ".nc"
+    # fn_tp = reanalysis_dir + str(
+    #     year) + str(month) + "01_" + str(year) + str(month) + str(number_of_days) + ".nc"
+    # Define file name formats
+    fn_tp_format0 = reanalysis_dir + f"{year}-{str(month).zfill(2)}-01_{year}-{str(month).zfill(2)}-{str(number_of_days).zfill(2)}.nc"
+    fn_tp_format1 = reanalysis_dir + f"{year}{str(month).zfill(2)}01_{year}{str(month).zfill(2)}{str(number_of_days).zfill(2)}.nc"
+    fn_tp_format2 = reanalysis_dir + f"{year}-{str(month).zfill(2)}-01_{year}-{str(month).zfill(2)}-{str(number_of_days).zfill(2)}.nc"
+    fn_tp_format3 = reanalysis_dir + f"{year}{str(month).zfill(2)}01_{year}{str(month).zfill(2)}{str(number_of_days).zfill(2)}.nc"
+    # fn_tp_format4 = '/home/shreibshtein/Downloads/tp_1940_1957.nc'
 
-    tp = xr.open_dataset(fn_tp)
-    # slp = xr.open_dataset(fn_slp)
-    # ta850 = xr.open_dataset(fn_ta850)
+    # List of formats to try
+    formats = [fn_tp_format0, fn_tp_format1, fn_tp_format2, fn_tp_format3]
+
+    # Try opening the dataset with each format
+    for fn in formats:
+        # print(fn)
+        try:
+            tp = xr.open_dataset(fn)
+            break
+        except FileNotFoundError:
+            continue
+    else:
+        print(print(reanalysis_dir))
+        raise FileNotFoundError("None of the file formats were found.")
+
 
     # Load lat and lon
     lats = tp.variables['latitude'][:]
     lons = tp.variables['longitude'][:]
 
-    # return tp, slp, ta850, lons, lats
     return tp, lons, lats
-
-

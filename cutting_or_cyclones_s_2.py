@@ -9,41 +9,36 @@ import glob
 import re
 
 
-def cutting_around_the_center(cyclones_data, reanalysis_dir, year):
-    """ space and resolution needs to be changed manually """
-    space = 25
-    resolution = 1.25
+def correct_longitudes(longitudes):
+    # Adjust longitudes to be within the range of 0 to 360 degrees
+    longitudes = np.where(longitudes >= 360, longitudes - 360, longitudes)
+    longitudes = np.where(longitudes < 0, longitudes + 360, longitudes)
+    return longitudes
 
-    for storm in cyclones_data:
-        index = str(int(storm.iloc[0]["Index"]))
-        tensor_per_storm = []
-        for i in range(len(storm)):
-            reanalysis_data, lons, lats = get_nc(int(storm.iloc[i]["Year"]), storm.iloc[i]["Month"], reanalysis_dir)
-            print(reanalysis_data)
-            variable_info = str(reanalysis_data.data_vars)
-            variable_name = variable_info[variable_info.find(':') + 6: variable_info.find('(') - 6]
-            reanalysis_data = reanalysis_data[variable_name]
 
-            time = datetime.datetime(year=int(storm.iloc[i]["Year"]), month=int(storm.iloc[i]["Month"]),
-                                     day=int(storm.iloc[i]["Day"]), hour=int(storm.iloc[i]["Hour"]))
+def cut_polygon(reanalysis_data, time, x, y, space_lon, space_lat, resolution, var):
+    longitudes = np.arange(x - space_lon, x + space_lon, resolution)
+    latitudes = np.arange(y - space_lat, y + space_lat, resolution)
 
-            x = storm.iloc[i]["Longitude"]
-            y = storm.iloc[i]["Latitude"]
 
-            longitudes = np.arange(x - space, x + space, resolution)
-            latitudes = np.arange(y - space, y + space, resolution)
-            # reanalysis_data.sel(time=time, longitude=longitudes, latitude=latitudes).plot()
-            # plt.savefig("/data/shreibshtein/plots/pr_test_3")
-            # exit()
+    if np.any(longitudes > 360) or np.any(longitudes < 0):
+        # Handle wrap-around case
+        corrected_longitudes = correct_longitudes(longitudes)
 
-            tensor_per_storm.append(
-                reanalysis_data.sel(time=time, longitude=longitudes, latitude=latitudes).to_numpy())
+        lon1 = corrected_longitudes[corrected_longitudes >= 0]
+        lon2 = corrected_longitudes[corrected_longitudes <= 360]
 
-        tensor_per_storm = np.array(tensor_per_storm)
+        ds1 = reanalysis_data.sel(time=time, longitude=lon1, latitude=latitudes, method='nearest')
+        ds2 = reanalysis_data.sel(time=time, longitude=lon2, latitude=latitudes, method='nearest')
 
-        np.save(
-            "/data/iacdc/ECMWF/ERA5/Tensors/" + variable_name + year + "/" + index, tensor_per_storm)
+        combined_ds = xr.concat([ds1, ds2], dim='longitude').isel(longitude=slice(None, len(longitudes)))
+        # combined_ds = combined_ds.sortby('longitude')
 
+    else:
+        combined_ds = reanalysis_data.sel(time=time, longitude=longitudes, latitude=latitudes, method='nearest')
+        combined_ds = combined_ds.sortby('longitude')
+
+    return combined_ds[var].to_numpy()
 
 def pre_tracks(file_path):
     def filter_tracks(ds):
@@ -70,18 +65,26 @@ def pre_tracks(file_path):
 if __name__ == '__main__':
 
     data_path = "/data/shreibshtein/OrCyclones"
-    start_year = 2000
-    end_year = 2019
+    start_year = 1958
+    end_year = 2021
 
     """ space and resolution needs to be changed manually """
-    space = 15
+    space_lon = 17.5
+    space_lat = 15
     resolution = 1.25
     levels = [250, 300, 500, 850]
-    variables = ['v10', 'u10', 't2m', 'sp']
+    # variables = ['v10', 'u10', 't2m', 'sp', 'pr', 'msl', 'tcw', 'z']
+    # variables = ['z']
     reanalysis_directories = ["/data/iacdc/ECMWF/ERA5/4xday_1.25_global_1000-200hPa/vas/vas_6hrPlev_reanalysis_ERA5_",
                               "/data/iacdc/ECMWF/ERA5/4xday_1.25_global_1000-200hPa/uas/uas_6hrPlev_reanalysis_ERA5_",
                               "/data/iacdc/ECMWF/ERA5/4xday_1.25_global_1000-200hPa/tas/tas_6hrPlev_reanalysis_ERA5_",
-                              "/data/iacdc/ECMWF/ERA5/4xday_1.25_global_1000-200hPa/ps/ps_6hrPlev_reanalysis_ERA5_"]
+                              "/data/iacdc/ECMWF/ERA5/4xday_1.25_global_1000-200hPa/ps/ps_6hrPlev_reanalysis_ERA5_",
+                              "/data/iacdc/ECMWF/ERA5/4xday_1.25_global_1000-200hPa/pr/pr_6hrPlev_reanalysis_ERA5_",
+                              "/data/iacdc/ECMWF/ERA5/4xday_1.25_global_1000-200hPa/psl/psl_6hrPlev_reanalysis_ERA5_",
+                              "/data/iacdc/ECMWF/ERA5/4xday_1.25_global_1000-200hPa/tpw/tpw_6hr_reanalysis_ERA5_",
+                              "/data/iacdc/ECMWF/ERA5/4xday_1.25_global_1000-200hPa/sfc_geo/sfc_geopotential_6hr_reanalysis_ERA5_"
+                              ]
+    # reanalysis_directories = ["/data/iacdc/ECMWF/ERA5/4xday_1.25_global_1000-200hPa/sfc_geo/sfc_geopotential_6hr_reanalysis_ERA5_"]
 
     # Create a regex pattern to extract the year from the file name
     year_pattern = re.compile(r'_(\d{4})_')
@@ -101,6 +104,10 @@ if __name__ == '__main__':
 
     for file in file_paths:
         print(file)
+
+        file_full_path = file.split('/')
+        file_name = file_full_path[-1].split('.')
+
         season = str(file)[30:33]
         if season == 'MAM':
             month = 3
@@ -122,12 +129,18 @@ if __name__ == '__main__':
         # print(even_num)
         # exit()
         for v in range(len(variables)):
-            var = variables[v]
-            print(var)
+            print(variables[v])
+            if variables[v] == 'pr':
+                var = 'tp'
+
+            else:
+                var = variables[v]
+
             reanalysis_dir = reanalysis_directories[v]
-            reanalysis_data, lons, lats = get_nc(int(year), month, reanalysis_dir)
-
-
+            if var == 'z':
+                reanalysis_data, lons, lats = get_nc(int(1979), 1, reanalysis_dir)
+            else:
+                reanalysis_data, lons, lats = get_nc(int(year), month, reanalysis_dir)
 
             for num in num_tracks:
                 with open('/data/shreibshtein/running.txt', 'w') as f:
@@ -141,25 +154,14 @@ if __name__ == '__main__':
                 for i in even_time_indexes:
                     i = int(i)
                     x = data.sel(trackid=num)['lon'].where(data.sel(trackid=num)['t'] == i).dropna(dim='points').data[0]
-                    y = \
-                    data.sel(trackid=num)['lat'].where(data.sel(trackid=num)['t'] == i).dropna(dim='points').data[0]
+                    y = data.sel(trackid=num)['lat'].where(data.sel(trackid=num)['t'] == i).dropna(dim='points').data[0]
 
-
-                    longitudes = np.arange(x - space, x + space, resolution)
-                    latitudes = np.arange(y - space, y + space, resolution)
 
                     time = starting_season_date + i * delta
-
-                    # reanalysis_data.sel(time=time, longitude=longitudes, latitude=latitudes, level=l,
-                    #                     method="nearest").to_array().plot()
-                    # plt.savefig("/data/shreibshtein/plots/pr_test_4")
-                    # exit()
-
                     tensor_p_storm.append(
-                        reanalysis_data.sel(time=time, longitude=longitudes, latitude=latitudes,
-                                            method="nearest")[var].to_numpy())
+                        cut_polygon(reanalysis_data, time, x, y, space_lon, space_lat, resolution, var))
 
                 tensor_p_storm_p_l = np.array(tensor_p_storm)
                 np.save(
-                    "/data/iacdc/ECMWF/ERA5/OrTensors/" + var + "/" + year + "/" + str(i),
-                    tensor_p_storm)
+                    f"/data/iacdc/ECMWF/ERA5/Gilad/OrTensors/{var}/{year}/{file_name[0]}_{int(num.data)}",
+                    tensor_p_storm_p_l)

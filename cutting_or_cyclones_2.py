@@ -9,40 +9,36 @@ import glob
 import re
 
 
-def cutting_around_the_center(cyclones_data, reanalysis_dir, year):
-    """ space and resolution needs to be changed manually """
-    space = 25
-    resolution = 1.25
+def correct_longitudes(longitudes):
+    # Adjust longitudes to be within the range of 0 to 360 degrees
+    longitudes = np.where(longitudes >= 360, longitudes - 360, longitudes)
+    longitudes = np.where(longitudes < 0, longitudes + 360, longitudes)
+    return longitudes
 
-    for storm in cyclones_data:
-        index = str(int(storm.iloc[0]["Index"]))
-        tensor_per_storm = []
-        for i in range(len(storm)):
-            reanalysis_data, lons, lats = get_nc(int(storm.iloc[i]["Year"]), storm.iloc[i]["Month"], reanalysis_dir)
-            print(reanalysis_data)
-            variable_info = str(reanalysis_data.data_vars)
-            variable_name = variable_info[variable_info.find(':') + 6: variable_info.find('(') - 6]
-            reanalysis_data = reanalysis_data[variable_name]
 
-            time = datetime.datetime(year=int(storm.iloc[i]["Year"]), month=int(storm.iloc[i]["Month"]),
-                                     day=int(storm.iloc[i]["Day"]), hour=int(storm.iloc[i]["Hour"]))
+def cut_polygon(reanalysis_data, time, x, y, space_lon, space_lat, resolution, var, level):
+    longitudes = np.arange(x - space_lon, x + space_lon, resolution)
+    latitudes = np.arange(y - space_lat, y + space_lat, resolution)
 
-            x = storm.iloc[i]["Longitude"]
-            y = storm.iloc[i]["Latitude"]
 
-            longitudes = np.arange(x - space, x + space, resolution)
-            latitudes = np.arange(y - space, y + space, resolution)
-            # reanalysis_data.sel(time=time, longitude=longitudes, latitude=latitudes).plot()
-            # plt.savefig("/data/shreibshtein/plots/pr_test_3")
-            # exit()
+    if np.any(longitudes > 360) or np.any(longitudes < 0):
+        # Handle wrap-around case
+        corrected_longitudes = correct_longitudes(longitudes)
 
-            tensor_per_storm.append(
-                reanalysis_data.sel(time=time, longitude=longitudes, latitude=latitudes).to_numpy())
+        lon1 = corrected_longitudes[corrected_longitudes >= 0]
+        lon2 = corrected_longitudes[corrected_longitudes <= 360]
 
-        tensor_per_storm = np.array(tensor_per_storm)
+        ds1 = reanalysis_data.sel(time=time, longitude=lon1, latitude=latitudes,level=level, method='nearest')
+        ds2 = reanalysis_data.sel(time=time, longitude=lon2, latitude=latitudes,level=level, method='nearest')
 
-        np.save(
-            "/data/iacdc/ECMWF/ERA5/Tensors/" + variable_name + year + "/" + index, tensor_per_storm)
+        combined_ds = xr.concat([ds1, ds2], dim='longitude').isel(longitude=slice(None, len(longitudes)))
+        # combined_ds = combined_ds.sortby('longitude')
+
+    else:
+        combined_ds = reanalysis_data.sel(time=time, longitude=longitudes, latitude=latitudes,level=level, method='nearest')
+        # combined_ds = combined_ds.sortby('longitude')
+
+    return combined_ds[var].to_numpy()
 
 
 def pre_tracks(file_path):
@@ -70,11 +66,12 @@ def pre_tracks(file_path):
 if __name__ == '__main__':
 
     data_path = "/data/shreibshtein/OrCyclones"
-    start_year = 2000
-    end_year = 2019
+    start_year = 1958
+    end_year = 2021
 
     """ space and resolution needs to be changed manually """
-    space = 15
+    space_lon = 17.5
+    space_lat = 15
     resolution = 1.25
     levels = [250, 300, 500, 850]
     variables = ['v', 'u', 't', 'z']
@@ -101,6 +98,9 @@ if __name__ == '__main__':
 
     for file in file_paths:
         print(file)
+        file_full_path = file.split('/')
+        file_name = file_full_path[-1].split('.')
+
         season = str(file)[30:33]
         if season == 'MAM':
             month = 3
@@ -136,7 +136,7 @@ if __name__ == '__main__':
                     even_time_indexes = time_indexes[
                         time_indexes % 2 == 0].to_numpy()  # Only even indexes means 6h resolution
                     even_time_indexes = np.delete(even_time_indexes, np.where(even_time_indexes == 0.))
-                    tensor_p_storm_p_l = []
+                    tensor_p_storm = []
                     for i in even_time_indexes:
                         i = int(i)
                         x = data.sel(trackid=num)['lon'].where(data.sel(trackid=num)['t'] == i).dropna(dim='points').data[0]
@@ -144,21 +144,14 @@ if __name__ == '__main__':
                         data.sel(trackid=num)['lat'].where(data.sel(trackid=num)['t'] == i).dropna(dim='points').data[0]
 
 
-                        longitudes = np.arange(x - space, x + space, resolution)
-                        latitudes = np.arange(y - space, y + space, resolution)
+                        longitudes = np.arange(x - space_lon, x + space_lon, resolution)
+                        latitudes = np.arange(y - space_lat, y + space_lat, resolution)
 
                         time = starting_season_date + i * delta
+                        tensor_p_storm.append(
+                        cut_polygon(reanalysis_data, time, x, y, space_lon, space_lat, resolution, var, l))
 
-                        # reanalysis_data.sel(time=time, longitude=longitudes, latitude=latitudes, level=l,
-                        #                     method="nearest").to_array().plot()
-                        # plt.savefig("/data/shreibshtein/plots/pr_test_4")
-                        # exit()
-
-                        tensor_p_storm_p_l.append(
-                            reanalysis_data.sel(time=time, longitude=longitudes, latitude=latitudes, level=l,
-                                                method="nearest")[var].to_numpy())
-
-                    tensor_p_storm_p_l = np.array(tensor_p_storm_p_l)
+                    tensor_p_storm_p_l = np.array(tensor_p_storm )
                     np.save(
-                        "/data/iacdc/ECMWF/ERA5/OrTensors/" + var + "a/" + str(l) + "/" + year + "/" + str(i),
+                        "/data/iacdc/ECMWF/ERA5/Gilad/OrTensors/" + var + "a/" + str(l) + "/" + year + "/" + file_name[0]+'_'+ str(i),
                         tensor_p_storm_p_l)
