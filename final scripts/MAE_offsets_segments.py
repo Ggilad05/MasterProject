@@ -16,12 +16,20 @@ DATA_DIRECTORY = r'C:\Users\shrei\PycharmProjects\MasterProject\final scripts'
 
 # 2. SET THE CATEGORIES TO PLOT (AS A LIST)
 # ---
-# All categories in this list will be drawn on the same figure.
-CATEGORIES_TO_PLOT = ['NH_DJF', 'NH_MAM', 'NH_JJA', 'NH_SON']
+CATEGORIES_TO_PLOT = ['SH_SA','NH_NP','NH_NA', 'SH_SO', 'NH_MED']
 
 # 3. SET THE FILE SEARCH PATTERN
 # ---
 CSV_PATTERN = 'mae_report_analysis_*.csv'
+
+# 4. DEFINE THE MAPPING FROM FILENAME NUMBER TO FORECAST HOUR
+# ---
+OFFSET_MAPPING = {
+    31: 6,
+    32: 12,
+    33: 18,
+    34: 24
+}
 
 
 # ▲▲▲ A A A YOUR SETTINGS END HERE A A A ▲▲▲
@@ -31,22 +39,20 @@ CSV_PATTERN = 'mae_report_analysis_*.csv'
 def plot_mae_multi_category(plot_data_dict):
     """
     Generates a single plot of MAE vs. Offset for multiple categories.
-    Each category is given a unique color, and each model a unique line style.
+    This version only plots the DL Model and Persistence Baseline.
     """
     print("\n📈 Generating single plot for all specified categories...")
 
     plt.style.use('seaborn-v0_8-whitegrid')
-    fig, ax = plt.subplots(figsize=(15, 10))  # Made figure larger for readability
+    fig, ax = plt.subplots(figsize=(15, 10))
 
-    # Define line styles for the different models
+    # Define line styles for the models to be plotted
     model_styles = {
         'DL Model': {'linestyle': '-', 'marker': 'o'},
-        'Persistence Baseline': {'linestyle': '--', 'marker': '^'},
-        'Linear Baseline': {'linestyle': ':', 'marker': 's'}
+        'Persistence Baseline': {'linestyle': '--', 'marker': '^'}
     }
 
     # Assign a unique color to each category
-    # Using a colormap to get distinct colors
     colors = plt.cm.tab10(np.linspace(0, 1, len(CATEGORIES_TO_PLOT)))
     category_colors = {category: color for category, color in zip(CATEGORIES_TO_PLOT, colors)}
 
@@ -58,12 +64,11 @@ def plot_mae_multi_category(plot_data_dict):
 
         # Sort the data by offset to ensure lines connect correctly
         data_list.sort(key=lambda x: x[0])
-        offsets, dl_maes, persistence_maes, linear_maes = zip(*data_list)
+        offsets, dl_maes, persistence_maes = zip(*data_list)
 
         data_by_model = {
             'DL Model': dl_maes,
-            'Persistence Baseline': persistence_maes,
-            'Linear Baseline': linear_maes
+            'Persistence Baseline': persistence_maes
         }
 
         # Plot a line for each model within this category
@@ -75,9 +80,9 @@ def plot_mae_multi_category(plot_data_dict):
                     marker=model_styles[model_name]['marker'])
 
     # --- Formatting ---
-    ax.set_title(f'Model MAE vs. Forecast Offset', fontsize=18, weight='bold')
-    ax.set_xlabel('Forecast Offset', fontsize=14)
-    ax.set_ylabel('Mean Absolute Error (mbar)', fontsize=14)
+    ax.set_title(f'Prediction Comparison Across Regions (NH)', fontsize=36)
+    ax.set_xlabel('Forecast Offset (Hours)', fontsize=28)
+    ax.set_ylabel('Mean Absolute Error (mbar)', fontsize=28)
 
     # Get all unique offsets to set the x-ticks
     all_offsets = sorted(list(set(t[0] for cat_data in plot_data_dict.values() for t in cat_data)))
@@ -85,12 +90,13 @@ def plot_mae_multi_category(plot_data_dict):
         ax.set_xticks(all_offsets)
 
     ax.tick_params(axis='both', which='major', labelsize=12)
-    ax.legend(fontsize='medium', loc='best')
+    ax.legend(fontsize=20, loc='best')
     ax.grid(True, which='both', linestyle='--', alpha=0.7)
-
+    fig.patch.set_facecolor('#81CFF3')
+    ax.tick_params(axis='x', labelsize=30)
+    ax.tick_params(axis='y', labelsize=30)
     fig.tight_layout()
 
-    # Display the plot without saving it to a file
     print("✅ Displaying plot...")
     plt.show()
 
@@ -119,11 +125,19 @@ def main():
 
         match = re.search(r'\d+', os.path.basename(f_path))
         if not match:
-            print(f"  ⚠️ WARNING: Could not parse offset number from filename. Skipping.")
+            print(f"  ⚠️ WARNING: Could not parse number from filename '{f_path}'. Skipping.")
             continue
 
-        offset = int(match.group(0))
-        print(f"  Parsed Offset: {offset}")
+        file_number = int(match.group(0))
+
+        # Use the mapping to get the correct offset in hours
+        offset_hour = OFFSET_MAPPING.get(file_number)
+
+        if offset_hour is None:
+            print(f"  ⚠️ WARNING: No mapping found for file number {file_number} in OFFSET_MAPPING. Skipping.")
+            continue
+
+        print(f"  Parsed file number {file_number} as Offset: {offset_hour} hours")
 
         try:
             df = pd.read_csv(f_path)
@@ -136,9 +150,8 @@ def main():
 
                 dl_mae = df.loc[category, 'DL_MAE']
                 persistence_mae = df.loc[category, 'PERSISTENCE_MAE']
-                linear_mae = df.loc[category, 'LINEAR_MAE']
 
-                plot_data_dict[category].append((offset, dl_mae, persistence_mae, linear_mae))
+                plot_data_dict[category].append((offset_hour, dl_mae, persistence_mae))
                 print(f"  + Collected data for category '{category}'")
 
         except Exception as e:

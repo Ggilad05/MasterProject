@@ -148,7 +148,7 @@ def analyze_sensitivity_files(base_dir, versions_to_analyze, user_defined_parame
             print(f"  Error: Checkpoints directory not found: {checkpoints_dir}")
             continue
 
-        search_pattern = os.path.join(checkpoints_dir, "*-eval_noise_diff-test_mae_jja.csv")
+        search_pattern = os.path.join(checkpoints_dir, "*-eval_noise_diff-test_mae.csv")
         sensitivity_files = glob.glob(search_pattern)
 
         if not sensitivity_files:
@@ -230,10 +230,10 @@ def analyze_sensitivity_files(base_dir, versions_to_analyze, user_defined_parame
 
 if __name__ == "__main__":
     # --- User Configuration ---
-    BASE_DIRECTORY = "/home/mansour/ML3300-24a/shreibshtein/DL-precipitation-prediction/model/CNN_SKIP_CONNECTION-config-v5-msl-1979-2024-lookback3h-forecast1h-circular-norm-cnn-skip-empty_norm-max_pool-depth_8"
-    VERSIONS_TO_ANALYZE = [45, 46, 47, 48]
+    BASE_DIRECTORY = "/home/mansour/ML3300-24a/shreibshtein/DL-precipitation-prediction/model/CNN_SKIP_CONNECTION-config-v5-msl-1979-2024-lookback3h-forecast4h-circular-norm-cnn-skip-empty_norm-max_pool-depth_8"
+    VERSIONS_TO_ANALYZE = [9, 10, 11, 12]
     STATS_DIRECTORY = "/home/mansour/ML3300-24a/shreibshtein/DL-precipitation-prediction/stats"
-    OUTPUT_PLOT_DIR = "sensitivity_analysis_plots_jja_31folds"
+    OUTPUT_PLOT_DIR = "sensitivity_analysis_FOLDS_34"
 
     PARAMETER_NAME_COLUMN_HEADER = "Parameter"
     SENSITIVITY_VALUE_COLUMN_HEADER = "Difference from Baseline"
@@ -335,7 +335,7 @@ if __name__ == "__main__":
                         final_means_series_sorted,
                         final_stds_series_sorted,
                         sorted_plot_labels,
-                        plot_title_suffix="6 Hour Prediction JJA ",
+                        plot_title_suffix="24 Hour Forecast",
                         output_filename_suffix="overall_cross_version_sorted",
                         output_dir=OUTPUT_PLOT_DIR,
                         horizontal_plot=True,  # Use horizontal plot for overall summary

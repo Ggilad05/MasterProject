@@ -181,7 +181,7 @@ ax.errorbar(time_step, linear_no_leakage_means, yerr=linear_no_leakage_err, labe
 # ax.errorbar(time_step, persistence_with_leakage_means, yerr=persistence_with_leakage_err, label='Persistence (Baseline for With Leakage)', fmt='--v', capsize=3, color='purple', alpha=0.7)
 # ax.errorbar(time_step, linear_with_leakage_means, yerr=linear_with_leakage_err, label='Linear (Baseline for With Leakage)', fmt=':P', capsize=3, color='brown', alpha=0.7)
 
-ax.plot(forecast_time_steps, forecast_mae_data, label='Forecast', marker='d', linestyle='-', color='magenta', linewidth=2, zorder=10)
+ax.plot(forecast_time_steps, forecast_mae_data, label='ERA5 Forecast', marker='d', linestyle='-', color='magenta', linewidth=2, zorder=10)
 
 # Annotate leakage improvement on plot (relative to the "Model With Leakage" line)
 # for i, x_pos in enumerate(time_step):
@@ -195,17 +195,41 @@ ax.plot(forecast_time_steps, forecast_mae_data, label='Forecast', marker='d', li
 #          vertical_offset = 0.3
 #
 #     ax.text(x_pos, y_pos + 0.5, f"{imp:.1f}%", color='orange', fontsize=9, ha='center', weight='bold')
+# Annotate MAE values on each point
 
+# For Model
+for i, (x, y) in enumerate(zip(time_step, model_no_leakage_means)):
+    ax.text(x, y + 0.15, f"{y:.2f}", color='blue', fontsize=12, ha='center')
 
-ax.set_xlabel('Forecast Horizon (Hours)')
-ax.set_ylabel('Mean Absolute Error')
-ax.set_title('Prediction MAE Across Forecast Horizons', fontsize=14)
-# fig.patch.set_facecolor('#F0EEE2')
+# For Persistence
+for i, (x, y) in enumerate(zip(time_step, persistence_no_leakage_means)):
+        ax.text(x, y + 0.15, f"{y:.2f}", color='green', fontsize=12, ha='center')
+
+# For Linear
+for i, (x, y) in enumerate(zip(time_step, linear_no_leakage_means)):
+    if x == 6:
+        ax.text(x, y - 0.3, f"{y:.2f}", color='red', fontsize=12, ha='center')
+    if x == 12:
+        ax.text(x, y - 0.3, f"{y:.2f}", color='red', fontsize=12, ha='center')
+    else:
+        ax.text(x, y + 0.15, f"{y:.2f}", color='red', fontsize=12, ha='center')
+
+# For ERA5 Forecast
+for i, (x, y) in enumerate(zip(forecast_time_steps, forecast_mae_data)):
+    ax.text(x, y + 0.15, f"{y:.2f}", color='magenta', fontsize=12, ha='center')
+
+ax.set_xlabel('Forecast Horizon (Hours)', fontsize=20)
+ax.set_ylabel('Mean Absolute Error', fontsize=20)
+ax.set_title('Prediction MAE Across Forecast Horizons', fontsize=28)
+fig.patch.set_facecolor('#81CFF3')
+# background_color = '#81CFF3'
 
 ax.grid(True, linestyle='--', alpha=0.7)
-ax.legend(loc='best', fontsize=9) # Adjusted legend location and size
+ax.legend(loc='best', fontsize=18) # Adjusted legend location and size
 ax.set_xticks(time_step)
 ax.set_xticklabels([str(t) for t in time_step])
-
+ax.tick_params(axis='x', labelsize=15)
+ax.tick_params(axis='y', labelsize=15)
+ax.set_ylim(bottom=0)
 plt.tight_layout()
 plt.show()

@@ -10,8 +10,7 @@ import os
 
 # 1. SET THE DIRECTORY WHERE YOUR .npz FILES ARE LOCATED
 # ---
-# DATA_DIRECTORY = r'C:\Users\shrei\PycharmProjects\MasterProject\final scripts'
-DATA_DIRECTORY = '/home/mansour/ML3300-24a/shreibshtein/scripts'
+DATA_DIRECTORY = r'C:\Users\shrei\PycharmProjects\MasterProject\final scripts'
 
 # 2. PROVIDE A LIST OF NPZ FILES TO AGGREGATE AND PLOT
 # ---
@@ -29,13 +28,13 @@ PLOT_CONTROL_BASELINES = True
 
 # 5. CHOOSE A DIRECTORY, TITLE, AND FILENAME FOR THE OUTPUT PLOT
 # ---
-OUTPUT_DIRECTORY = 'plots'  # The folder where the final plot will be saved
+OUTPUT_DIRECTORY = 'plots'
 PLOT_TITLE = 'DL Model Seasonal Error Distributions vs. Control Baselines'
-OUTPUT_FILENAME = 'pdf_plot_seasonal_vs_control.png'
+OUTPUT_FILENAME = 'pdf_plot_seasonal_vs_control_final.png'
 
 # 6. PLOT SETTINGS
 # ---
-PLOT_X_LIMITS = (-15, 15)
+PLOT_X_LIMITS = (-10, 10)
 
 
 # ▲▲▲ A A A YOUR SETTINGS END HERE A A A ▲▲▲
@@ -58,22 +57,24 @@ def plot_error_distributions(error_data, plot_styles, title, output_file, xlim_r
             kde = st.gaussian_kde(errors)
             mean_error = np.mean(errors)
             count = len(errors)
-            label = f"{name} (ME={mean_error:.2f}, N={count})"
+            # label = f"{name} (ME={mean_error:.2f}, N={count})"
+            label = f"{name} ME={mean_error:.2f}"
             ax.plot(x_vals, kde(x_vals), label=label, **style)
         else:
             print(f"  ⚠️ Skipping '{name}' as it contains insufficient data.")
 
     # --- Formatting ---
     ax.axvline(0, color='black', linestyle='--', linewidth=1.5, label='Zero Error')
-    ax.set_title(title, fontsize=18, weight='bold')
-    ax.set_xlabel('Raw Error (mbar) [Prediction - True Value]', fontsize=14)
-    ax.set_ylabel('Normalized Probability Density', fontsize=14)
+    ax.set_title(title, fontsize=36)
+    ax.set_xlabel('ME (mbar)', fontsize=28)
+    ax.set_ylabel('Normalized PDF', fontsize=28)
     ax.set_xlim(xlim_range)
-    ax.legend(fontsize='medium', loc='best')
+    ax.legend(fontsize=18, loc='best')
     ax.grid(True, which='both', linestyle='--', alpha=0.7)
+    ax.tick_params(axis='x', labelsize=20)
+    ax.tick_params(axis='y', labelsize=20)
 
     fig.tight_layout()
-    # Save the figure to the specified output file path
     plt.savefig(output_file, dpi=300)
     print(f"✅ Plot saved successfully to: {output_file}")
     plt.show()
@@ -100,13 +101,11 @@ def main():
             continue
         try:
             data = np.load(full_file_path)
-            # Collect DL model errors for specified categories
             for category in CATEGORIES_TO_PLOT:
                 key = f"dl_{category}"
                 if key in data:
                     temp_data[category].append(data[key])
 
-            # Collect errors for control baselines
             if PLOT_CONTROL_BASELINES:
                 p_nh, p_sh = data.get('persistence_NH'), data.get('persistence_SH')
                 if p_nh is not None and p_sh is not None:
@@ -114,7 +113,6 @@ def main():
                 l_nh, l_sh = data.get('linear_NH'), data.get('linear_SH')
                 if l_nh is not None and l_sh is not None:
                     temp_data['control_linear'].append(np.concatenate([l_nh, l_sh]))
-
             data.close()
         except Exception as e:
             print(f"  ❌ ERROR: Could not process file '{filename}'. Reason: {e}")
@@ -124,43 +122,66 @@ def main():
     error_data_to_plot = {}
     plot_styles = {}
 
-    colors = plt.cm.tab10(np.linspace(0, 1, len(CATEGORIES_TO_PLOT)))
-    category_colors = {category: color for category, color in zip(CATEGORIES_TO_PLOT, colors)}
+    # --- NEW STYLING LOGIC based on true seasons ---
+    season_map = {
+        'NH_DJF': 'Winter', 'NH_MAM': 'Spring', 'NH_JJA': 'Summer', 'NH_SON': 'Autumn',
+        'SH_JJA': 'Winter', 'SH_SON': 'Spring', 'SH_DJF': 'Summer', 'SH_MAM': 'Autumn'
+    }
+    season_colors = {
+        'Winter': 'blue',
+        'Spring': 'green',
+        'Summer': 'red',
+        'Autumn': 'darkorange'
+    }
 
+    # Finalize DL model data and create styles based on the new rules
     for category in CATEGORIES_TO_PLOT:
-        if temp_data[category]:
+        if temp_data.get(category):
             label = f"DL Model ({category})"
             error_data_to_plot[label] = np.concatenate(temp_data[category])
-            plot_styles[label] = {'linestyle': '-', 'lw': 3, 'color': category_colors[category]}
 
+            actual_season = season_map.get(category)
+            if not actual_season:
+                print(f"  ⚠️ Could not determine season for '{category}'. Using default style.")
+                plot_styles[label] = {'linestyle': '-', 'lw': 3, 'color': 'gray'}
+                continue
+
+            # Get color based on the true season name
+            color = season_colors.get(actual_season)
+            # Get line style based on the hemisphere
+            linestyle = '--' if category.startswith('SH') else '-'
+
+            plot_styles[label] = {'linestyle': linestyle, 'lw': 3, 'color': color}
+            print(f"-- Finalized data and style for '{label}'")
+
+    # Finalize Control Baseline data (this logic remains the same)
     if PLOT_CONTROL_BASELINES:
-        if temp_data['control_persistence']:
+        if temp_data.get('control_persistence'):
             label = "Persistence Baseline (Control)"
             error_data_to_plot[label] = np.concatenate(temp_data['control_persistence'])
             plot_styles[label] = {'linestyle': '--', 'lw': 2.5, 'color': 'black'}
+            print(f"-- Finalized data for '{label}'")
 
-        if temp_data['control_linear']:
+        if temp_data.get('control_linear'):
             label = "Linear Baseline (Control)"
             error_data_to_plot[label] = np.concatenate(temp_data['control_linear'])
             plot_styles[label] = {'linestyle': ':', 'lw': 2.5, 'color': 'dimgray'}
+            print(f"-- Finalized data for '{label}'")
 
     # --- STEP 3: Generate the plot ---
     if not error_data_to_plot:
         print("\n❌ ERROR: No data was successfully collected to create a plot.")
         return
 
-    # --- NEW: Create the output directory if it doesn't exist ---
     print(f"\n📁 Ensuring output directory '{OUTPUT_DIRECTORY}' exists...")
     os.makedirs(OUTPUT_DIRECTORY, exist_ok=True)
-
-    # Construct the full path for the output file
     full_output_path = os.path.join(OUTPUT_DIRECTORY, OUTPUT_FILENAME)
 
     plot_error_distributions(
         error_data=error_data_to_plot,
         plot_styles=plot_styles,
         title=PLOT_TITLE,
-        output_file=full_output_path,  # Pass the full path to the function
+        output_file=full_output_path,
         xlim_range=PLOT_X_LIMITS
     )
 
