@@ -1,3 +1,281 @@
+# # import matplotlib.pyplot as plt
+# # # import numpy as np
+# # #
+# # # # === MAE data ===
+# # #
+# # # # Folds - 45, 46, 47, 48
+# # # model_31_mae = [1.1613, 1.1669, 1.1585, 1.1724]
+# # # model_31_mae_mean = np.mean(model_31_mae)
+# # #
+# # # Persistence_31_mae = [2.3201, 2.31, 2.3192, 2.3221]
+# # # Persistence_31_mae_mean = np.mean(Persistence_31_mae)
+# # #
+# # # linear_31_mae = [2.1286, 2.1225, 2.1263, 2.1278]
+# # # linear_31_mae_mean = np.mean(linear_31_mae)
+# # #
+# # # # folds 10, 11, 12, 13
+# # # model_32_mae = [1.7669, 1.7812, 1.5917, 1.5809]
+# # # model_32_mae_mean = np.mean(model_32_mae)
+# # #
+# # # Persistence_32_mae = [4.0292, 4.0355, 4.0172, 4.0274]
+# # # Persistence_32_mae_mean = np.mean(Persistence_32_mae)
+# # #
+# # # linear_32_mae = [3.9428, 3.9456, 3.9339, 3.9339]
+# # # linear_32_mae_mean = np.mean(linear_32_mae)
+# # #
+# # # # folds 11, 13, 14, 15
+# # # model_33_mae = [2.5954, 2.6040, 2.6204, 2.5793]
+# # # model_33_mae_mean = np.mean(model_33_mae)
+# # #
+# # # Persistence_33_mae = [5.6442, 5.6434, 5.6366, 5.6283]
+# # # Persistence_33_mae_mean = np.mean(Persistence_33_mae)
+# # #
+# # # linear_33_mae = [6.1736, 6.1772, 6.1563, 6.1569]
+# # # linear_33_mae_mean = np.mean(linear_33_mae)
+# # #
+# # #
+# # # # folds 9 10 11 12
+# # # model_34_mae = [3.4652, 3.4742, 3.5271, 3.4194]
+# # # model_34_mae_mean = np.mean(model_34_mae)
+# # #
+# # # Persistence_34_mae = [7.0282, 7.0323, 7.0122,  7.0177]
+# # # Persistence_34_mae_mean = np.mean(Persistence_34_mae)
+# # #
+# # # linear_34_mae = [8.4172, 8.4201, 8.3871, 8.7527]
+# # # linear_34_mae_mean = np.mean(linear_34_mae)
+# # #
+# # #
+# # # # === Grouping and X-axis ===
+# # #
+# # # # Mean MAE values
+# # # model_no_leakage_means = [model_31_mae_mean, model_32_mae_mean, model_33_mae_mean, model_34_mae_mean]
+# # # persistence_no_leakage_means = [Persistence_31_mae_mean, Persistence_32_mae_mean, Persistence_33_mae_mean, Persistence_34_mae_mean]
+# # # linear_no_leakage_means = [linear_31_mae_mean, linear_32_mae_mean, linear_33_mae_mean, linear_34_mae_mean]
+# # #
+# # # time_step = np.array([6, 12, 18, 24])
+# # #
+# # # # Standard deviations (error bars)
+# # # model_no_leakage_err = [np.std(model_31_mae), np.std(model_32_mae), np.std(model_33_mae), np.std(model_34_mae)]
+# # # persistence_no_leakage_err = [np.std(Persistence_31_mae), np.std(Persistence_32_mae), np.std(Persistence_33_mae), np.std(Persistence_34_mae)]
+# # # linear_no_leakage_err = [np.std(linear_31_mae), np.std(linear_32_mae), np.std(linear_33_mae), np.std(linear_34_mae)]
+# # #
+# # # # forecast
+# # # forecast_mae_data = [0.71, 0.93, 1.05]
+# # # forecast_time_steps = np.array([6, 12, 18])
+# # #
+# # # # === Plot ===
+# # #
+# # # fig, ax = plt.subplots(figsize=(12, 8)) # Increased figure size for better readability
+# # #
+# # # # Plotting model lines
+# # # ax.errorbar(time_step, model_no_leakage_means, yerr=model_no_leakage_err, label='Model', fmt='-o', capsize=5, color='blue', linewidth=2)
+# # #
+# # # # Plotting baseline lines
+# # # ax.errorbar(time_step, persistence_no_leakage_means, yerr=persistence_no_leakage_err, label='Persistence', fmt='--^', capsize=3, color='green', alpha=0.7)
+# # # ax.errorbar(time_step, linear_no_leakage_means, yerr=linear_no_leakage_err, label='Linear', fmt=':x', capsize=3, color='red', alpha=0.7)
+# # #
+# # # # Plotting forecast data
+# # # ax.plot(forecast_time_steps, forecast_mae_data, label='ERA5 Forecast', marker='d', linestyle='-', color='magenta', linewidth=2, zorder=10)
+# # #
+# # # # --- NEW CODE: Calculate and Plot Model/Persistence Ratio ---
+# # # # This is often called the "Skill Score" of the model against the persistence baseline.
+# # # model_persistence_ratio = np.array(model_no_leakage_means) / np.array(persistence_no_leakage_means)
+# # #
+# # # # Plot the ratio line
+# # # ax.plot(time_step, model_persistence_ratio, label='Model / Persistence Ratio', marker='P', linestyle='-.', color='#00FFFF', linewidth=2) # Cyan color
+# # #
+# # # # Annotate the ratio values on the plot
+# # # for i, (x, y) in enumerate(zip(time_step, model_persistence_ratio)):
+# # #     ax.text(x, y - 0.15, f"{y:.2f}", color='#008B8B', fontsize=12, ha='center', weight='bold') # Dark Cyan text for readability
+# # # # -----------------------------------------------------------
+# # #
+# # #
+# # # # --- Annotations ---
+# # #
+# # # # For Model
+# # # for i, (x, y) in enumerate(zip(time_step, model_no_leakage_means)):
+# # #     ax.text(x, y + 0.15, f"{y:.2f}", color='blue', fontsize=12, ha='center')
+# # #
+# # # # For Persistence
+# # # for i, (x, y) in enumerate(zip(time_step, persistence_no_leakage_means)):
+# # #         ax.text(x, y + 0.15, f"{y:.2f}", color='green', fontsize=12, ha='center')
+# # #
+# # # # For Linear
+# # # for i, (x, y) in enumerate(zip(time_step, linear_no_leakage_means)):
+# # #     if x in [6, 12]:
+# # #         ax.text(x, y - 0.3, f"{y:.2f}", color='red', fontsize=12, ha='center')
+# # #     else:
+# # #         ax.text(x, y + 0.15, f"{y:.2f}", color='red', fontsize=12, ha='center')
+# # #
+# # # # For ERA5 Forecast
+# # # for i, (x, y) in enumerate(zip(forecast_time_steps, forecast_mae_data)):
+# # #     ax.text(x, y + 0.15, f"{y:.2f}", color='magenta', fontsize=12, ha='center')
+# # #
+# # #
+# # # # --- Final Plot Styling ---
+# # # ax.set_xlabel('Forecast Horizon (Hours)', fontsize=20)
+# # # ax.set_ylabel('Mean Absolute Error', fontsize=20)
+# # # ax.set_title('Prediction MAE Across Forecast Horizons', fontsize=28)
+# # # # fig.patch.set_facecolor('#81CFF3')
+# # #
+# # # ax.grid(True, linestyle='--', alpha=0.7)
+# # # ax.legend(loc='upper left', fontsize=18)
+# # # ax.set_xticks(time_step)
+# # # ax.set_xticklabels([str(t) for t in time_step])
+# # # ax.tick_params(axis='x', labelsize=15)
+# # # ax.tick_params(axis='y', labelsize=15)
+# # # ax.set_ylim(bottom=0)
+# # # plt.tight_layout()
+# # # plt.show()
+# #
+# # import matplotlib.pyplot as plt
+# # import numpy as np
+# #
+# # # === MAE data ===
+# #
+# # # Folds - 45, 46, 47, 48
+# # model_31_mae = [1.1613, 1.1669, 1.1585, 1.1724]
+# # model_31_mae_mean = np.mean(model_31_mae)
+# #
+# # Persistence_31_mae = [2.3201, 2.31, 2.3192, 2.3221]
+# # Persistence_31_mae_mean = np.mean(Persistence_31_mae)
+# #
+# # linear_31_mae = [2.1286, 2.1225, 2.1263, 2.1278]
+# # linear_31_mae_mean = np.mean(linear_31_mae)
+# #
+# # # folds 10, 11, 12, 13
+# # model_32_mae = [1.7669, 1.7812, 1.5917, 1.5809]
+# # model_32_mae_mean = np.mean(model_32_mae)
+# #
+# # Persistence_32_mae = [4.0292, 4.0355, 4.0172, 4.0274]
+# # Persistence_32_mae_mean = np.mean(Persistence_32_mae)
+# #
+# # linear_32_mae = [3.9428, 3.9456, 3.9339, 3.9339]
+# # linear_32_mae_mean = np.mean(linear_32_mae)
+# #
+# # # folds 11, 13, 14, 15
+# # model_33_mae = [2.5954, 2.6040, 2.6204, 2.5793]
+# # model_33_mae_mean = np.mean(model_33_mae)
+# #
+# # Persistence_33_mae = [5.6442, 5.6434, 5.6366, 5.6283]
+# # Persistence_33_mae_mean = np.mean(Persistence_33_mae)
+# #
+# # linear_33_mae = [6.1736, 6.1772, 6.1563, 6.1569]
+# # linear_33_mae_mean = np.mean(linear_33_mae)
+# #
+# #
+# # # folds 9 10 11 12
+# # model_34_mae = [3.4652, 3.4742, 3.5271, 3.4194]
+# # model_34_mae_mean = np.mean(model_34_mae)
+# #
+# # Persistence_34_mae = [7.0282, 7.0323, 7.0122,  7.0177]
+# # Persistence_34_mae_mean = np.mean(Persistence_34_mae)
+# #
+# # linear_34_mae = [8.4172, 8.4201, 8.3871, 8.7527]
+# # linear_34_mae_mean = np.mean(linear_34_mae)
+# #
+# #
+# # # === Grouping and X-axis ===
+# #
+# # # Mean MAE values
+# # model_no_leakage_means = [model_31_mae_mean, model_32_mae_mean, model_33_mae_mean, model_34_mae_mean]
+# # persistence_no_leakage_means = [Persistence_31_mae_mean, Persistence_32_mae_mean, Persistence_33_mae_mean, Persistence_34_mae_mean]
+# # linear_no_leakage_means = [linear_31_mae_mean, linear_32_mae_mean, linear_33_mae_mean, linear_34_mae_mean]
+# #
+# # time_step = np.array([6, 12, 18, 24])
+# #
+# # # Standard deviations (error bars)
+# # model_no_leakage_err = [np.std(model_31_mae), np.std(model_32_mae), np.std(model_33_mae), np.std(model_34_mae)]
+# # persistence_no_leakage_err = [np.std(Persistence_31_mae), np.std(Persistence_32_mae), np.std(Persistence_33_mae), np.std(Persistence_34_mae)]
+# # linear_no_leakage_err = [np.std(linear_31_mae), np.std(linear_32_mae), np.std(linear_33_mae), np.std(linear_34_mae)]
+# #
+# # # forecast
+# # forecast_mae_data = [0.71, 0.93, 1.05]
+# # forecast_time_steps = np.array([6, 12, 18])
+# #
+# # # === Plot ===
+# #
+# # fig, ax = plt.subplots(figsize=(12, 8)) # Increased figure size for better readability
+# #
+# # # Plotting model lines
+# # ax.errorbar(time_step, model_no_leakage_means, yerr=model_no_leakage_err, label='Model', fmt='-o', capsize=5, color='blue', linewidth=2)
+# #
+# # # Plotting baseline lines
+# # ax.errorbar(time_step, persistence_no_leakage_means, yerr=persistence_no_leakage_err, label='Persistence', fmt='--^', capsize=3, color='green', alpha=0.7)
+# # ax.errorbar(time_step, linear_no_leakage_means, yerr=linear_no_leakage_err, label='Linear', fmt=':x', capsize=3, color='red', alpha=0.7)
+# #
+# # # Plotting forecast data
+# # ax.plot(forecast_time_steps, forecast_mae_data, label='ERA5 Forecast', marker='d', linestyle='-', color='magenta', linewidth=2, zorder=10)
+# #
+# #
+# # # --- NEW CODE: Calculate and Plot Forecast Skill ---
+# # # Using the formula: sf(%) = 100 * (eb - ef) / eb
+# # # where ef = model error, eb = baseline (persistence) error
+# #
+# # # Calculate forecast skill
+# # forecast_skill = 100 * (np.array(persistence_no_leakage_means) - np.array(model_no_leakage_means)) / np.array(persistence_no_leakage_means)
+# #
+# # # Create a second y-axis for the skill percentage
+# # ax2 = ax.twinx()
+# #
+# # # Plot the forecast skill line on the second y-axis
+# # ax2.plot(time_step, forecast_skill, label='Forecast Skill', marker='s', linestyle='-.', color='purple', linewidth=2)
+# #
+# # # Annotate the skill values on the plot
+# # for i, (x, y) in enumerate(zip(time_step, forecast_skill)):
+# #     ax2.text(x, y + 2, f"{y:.1f}%", color='purple', fontsize=12, ha='center', weight='bold')
+# #
+# # # Set the label and ticks for the second y-axis
+# # ax2.set_ylabel('Forecast Skill (%)', fontsize=20, color='purple')
+# # ax2.tick_params(axis='y', labelcolor='purple', labelsize=15)
+# # ax2.set_ylim(bottom=0, top=max(forecast_skill) * 1.2) # Dynamic upper limit
+# # # -----------------------------------------------------------
+# #
+# #
+# # # --- Annotations ---
+# #
+# # # For Model
+# # for i, (x, y) in enumerate(zip(time_step, model_no_leakage_means)):
+# #     ax.text(x, y + 0.15, f"{y:.2f}", color='blue', fontsize=12, ha='center')
+# #
+# # # For Persistence
+# # for i, (x, y) in enumerate(zip(time_step, persistence_no_leakage_means)):
+# #         ax.text(x, y + 0.15, f"{y:.2f}", color='green', fontsize=12, ha='center')
+# #
+# # # For Linear
+# # for i, (x, y) in enumerate(zip(time_step, linear_no_leakage_means)):
+# #     if x in [6, 12]:
+# #         ax.text(x, y - 0.3, f"{y:.2f}", color='red', fontsize=12, ha='center')
+# #     else:
+# #         ax.text(x, y + 0.15, f"{y:.2f}", color='red', fontsize=12, ha='center')
+# #
+# # # For ERA5 Forecast
+# # for i, (x, y) in enumerate(zip(forecast_time_steps, forecast_mae_data)):
+# #     ax.text(x, y + 0.15, f"{y:.2f}", color='magenta', fontsize=12, ha='center')
+# #
+# #
+# # # --- Final Plot Styling ---
+# # ax.set_xlabel('Forecast Horizon (Hours)', fontsize=20)
+# # ax.set_ylabel('Mean Absolute Error', fontsize=20)
+# # ax.set_title('Prediction MAE and Forecast Skill Across Forecast Horizons', fontsize=28)
+# # # fig.patch.set_facecolor('#81CFF3')
+# #
+# # ax.grid(True, linestyle='--', alpha=0.7)
+# #
+# # # --- Combined Legend ---
+# # # We need to combine the legends from both axes to display them together.
+# # lines, labels = ax.get_legend_handles_labels()
+# # lines2, labels2 = ax2.get_legend_handles_labels()
+# # ax.legend(lines + lines2, labels + labels2, loc='upper left', fontsize=16)
+# #
+# # ax.set_xticks(time_step)
+# # ax.set_xticklabels([str(t) for t in time_step])
+# # ax.tick_params(axis='x', labelsize=15)
+# # ax.tick_params(axis='y', labelsize=15)
+# # ax.set_ylim(bottom=0)
+# # plt.tight_layout()
+# # plt.show()
+
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -171,7 +449,7 @@ fig, ax = plt.subplots(figsize=(10, 7)) # Increased figure size for better legen
 
 # Plotting model lines
 ax.errorbar(time_step, model_no_leakage_means, yerr=model_no_leakage_err, label='Model', fmt='-o', capsize=5, color='blue', linewidth=2)
-# ax.errorbar(time_step, model_with_leakage_means, yerr=model_with_leakage_err, label='Model (With Leakage)', fmt='-s', capsize=5, color='orange', linewidth=2)
+ax.errorbar(time_step, model_with_leakage_means, yerr=model_with_leakage_err, label='Model (With Leakage)', fmt='-s', capsize=5, color='orange', linewidth=2)
 
 # Plotting baseline lines for "No Leakage" scenario
 ax.errorbar(time_step, persistence_no_leakage_means, yerr=persistence_no_leakage_err, label='Persistence', fmt='--^', capsize=3, color='green', alpha=0.7)
@@ -221,7 +499,7 @@ for i, (x, y) in enumerate(zip(forecast_time_steps, forecast_mae_data)):
 ax.set_xlabel('Forecast Horizon (Hours)', fontsize=20)
 ax.set_ylabel('Mean Absolute Error', fontsize=20)
 ax.set_title('Prediction MAE Across Forecast Horizons', fontsize=28)
-fig.patch.set_facecolor('#81CFF3')
+# fig.patch.set_facecolor('#81CFF3')
 # background_color = '#81CFF3'
 
 ax.grid(True, linestyle='--', alpha=0.7)

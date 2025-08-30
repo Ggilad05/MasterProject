@@ -18,6 +18,7 @@ def parse_parameters(param_string):
 def load_normalization_stats(stats_dir, mean_filename_pattern, std_filename_pattern, target_variable_index=28):
     """
     Loads mean and std tensors and extracts the std for the target variable.
+    Returns the std for denormalization in mbar (Pa / 100).
     """
     print(f"\nAttempting to load normalization stats from: {stats_dir}")
     print(f"Mean file pattern: '{mean_filename_pattern}', Std file pattern: '{std_filename_pattern}'")
@@ -35,11 +36,9 @@ def load_normalization_stats(stats_dir, mean_filename_pattern, std_filename_patt
     mean_file_path = mean_files[0]
     std_file_path = std_files[0]
     if len(mean_files) > 1:
-        print(
-            f"  Warning: Multiple mean files found matching pattern. Using the first one: {os.path.basename(mean_file_path)}")
+        print(f"  Warning: Multiple mean files found. Using the first: {os.path.basename(mean_file_path)}")
     if len(std_files) > 1:
-        print(
-            f"  Warning: Multiple std files found matching pattern. Using the first one: {os.path.basename(std_file_path)}")
+        print(f"  Warning: Multiple std files found. Using the first: {os.path.basename(std_file_path)}")
 
     try:
         print(f"  Loading mean from: {mean_file_path}")
@@ -52,8 +51,7 @@ def load_normalization_stats(stats_dir, mean_filename_pattern, std_filename_patt
             print("  Error: Loaded std is not a torch.Tensor.")
             return None
         if std_tensor.ndim == 0 or std_tensor.shape[0] <= target_variable_index:
-            print(
-                f"  Error: Std tensor (shape {std_tensor.shape}) is empty or does not have index {target_variable_index}.")
+            print(f"  Error: Std tensor (shape {std_tensor.shape}) empty or lacks index {target_variable_index}.")
             return None
 
         target_std_value_pa = std_tensor[target_variable_index].item()
@@ -69,7 +67,7 @@ def load_normalization_stats(stats_dir, mean_filename_pattern, std_filename_patt
 
 def plot_parameter_sensitivity(param_means_denorm, param_stds_denorm, parameter_plot_labels,
                                plot_title_suffix, output_filename_suffix, output_dir=".",
-                               horizontal_plot=False, sorted_desc=False):  # Added horizontal_plot and sorted_desc
+                               horizontal_plot=False, sorted_desc=False):
     """
     Generates and saves a bar plot of parameter sensitivities.
     Can be used for per-version or cross-version plots.
@@ -112,7 +110,7 @@ def plot_parameter_sensitivity(param_means_denorm, param_stds_denorm, parameter_
     plt.tight_layout()
 
     if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+        os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, f"denorm_sensitivity_plot_{output_filename_suffix}.png")
 
     try:
@@ -137,6 +135,9 @@ def analyze_sensitivity_files(base_dir, versions_to_analyze, user_defined_parame
         print("Error: Target standard deviation for denormalization is not available. Cannot proceed.")
         return {}
 
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+
     all_version_results = {}
 
     for version in versions_to_analyze:
@@ -155,17 +156,14 @@ def analyze_sensitivity_files(base_dir, versions_to_analyze, user_defined_parame
             search_pattern_any_csv = os.path.join(checkpoints_dir, "*.csv")
             sensitivity_files = glob.glob(search_pattern_any_csv)
             if sensitivity_files:
-                print(
-                    f"  Warning: No specific '*-eval_noise_diff-test_mae.csv' found. Using first available CSV: {os.path.basename(sensitivity_files[0])}")
+                print(f"  Warning: No '*-eval_noise_diff-test_mae.csv' found. Using first CSV: {os.path.basename(sensitivity_files[0])}")
             else:
-                print(
-                    f"  Error: No sensitivity CSV file found in '{checkpoints_dir}' (tried '*-eval_noise_diff-test_mae.csv' and '*.csv').")
+                print(f"  Error: No sensitivity CSV file found in '{checkpoints_dir}'.")
                 continue
 
         sensitivity_file_path = sensitivity_files[0]
         if len(sensitivity_files) > 1:
-            print(
-                f"  Warning: Multiple sensitivity files found matching search. Using the first one: {os.path.basename(sensitivity_file_path)}")
+            print(f"  Warning: Multiple sensitivity files found. Using the first: {os.path.basename(sensitivity_file_path)}")
         print(f"  Found sensitivity file: {os.path.basename(sensitivity_file_path)}")
 
         try:
@@ -185,8 +183,7 @@ def analyze_sensitivity_files(base_dir, versions_to_analyze, user_defined_parame
             try:
                 df[sensitivity_value_col_header] = pd.to_numeric(df[sensitivity_value_col_header], errors='coerce')
                 if df[sensitivity_value_col_header].isnull().any():
-                    print(
-                        f"  Warning: Column '{sensitivity_value_col_header}' contains non-numeric values or NaNs after coercion. These will be ignored.")
+                    print(f"  Warning: Column '{sensitivity_value_col_header}' contains non-numeric values or NaNs after coercion. These will be ignored.")
             except Exception as e:
                 print(f"  Error converting sensitivity value column '{sensitivity_value_col_header}' to numeric: {e}")
                 continue
@@ -199,30 +196,45 @@ def analyze_sensitivity_files(base_dir, versions_to_analyze, user_defined_parame
             parameter_labels_for_this_version_plot = [p for p in csv_param_names if p in user_defined_parameters_filter]
 
             if not parameter_labels_for_this_version_plot:
+                print("  No overlapping parameters between CSV and user filter; skipping plotting/saving for this version.")
                 continue
 
             means_norm = means_norm_all_csv_params.loc[parameter_labels_for_this_version_plot]
             stds_norm = stds_norm_all_csv_params.loc[parameter_labels_for_this_version_plot]
 
+            # Denormalize
             means_denorm = means_norm * target_std_for_denorm
             stds_denorm = stds_norm * target_std_for_denorm
 
+            # Store
             all_version_results[version] = {
-                "means_denorm": means_denorm,  # Series indexed by parameter_labels_for_this_version_plot
-                "stds_denorm": stds_denorm,  # Series indexed by parameter_labels_for_this_version_plot
-                # "plot_labels" is not strictly needed here as series index holds the names
+                "means_denorm": means_denorm,  # pd.Series indexed by parameter
+                "stds_denorm": stds_denorm,    # pd.Series indexed by parameter
             }
-            # Per-version plots are not sorted by impact by default, keeping original order from filter list
+
+            # --- NEW: Save per-version denormalized mean/std to CSV ---
+            per_version_df = pd.DataFrame({
+                "Parameter": means_denorm.index,
+                "Mean_Denorm_Sens": means_denorm.values,
+                "Std_Denorm_Sens": stds_denorm.values
+            })
+            per_version_csv = os.path.join(output_dir, f"denorm_sensitivity_values_{version_str}.csv")
+            try:
+                per_version_df.to_csv(per_version_csv, index=False)
+                print(f"  Saved per-version denormalized sensitivities to: {per_version_csv}")
+            except Exception as e:
+                print(f"  Error saving per-version CSV for {version_str}: {e}")
+
+            # Plot per-version (keeps original order from filter list)
             plot_parameter_sensitivity(means_denorm, stds_denorm, parameter_labels_for_this_version_plot,
                                        plot_title_suffix=f"for Model Version {version}",
                                        output_filename_suffix=f"version_{version}",
                                        output_dir=output_dir,
-                                       horizontal_plot=True,  # Make per-version plots horizontal too
-                                       sorted_desc=False)  # Not sorting per-version plot by default
+                                       horizontal_plot=True,
+                                       sorted_desc=False)
 
         except Exception as e:
-            print(
-                f"  An unexpected error occurred processing {os.path.basename(sensitivity_file_path)} for version {version}: {e}")
+            print(f"  An unexpected error occurred processing {os.path.basename(sensitivity_file_path)} for version {version}: {e}")
             traceback.print_exc()
         print("-" * 40)
     return all_version_results
@@ -230,17 +242,17 @@ def analyze_sensitivity_files(base_dir, versions_to_analyze, user_defined_parame
 
 if __name__ == "__main__":
     # --- User Configuration ---
-    BASE_DIRECTORY = "/home/mansour/ML3300-24a/shreibshtein/DL-precipitation-prediction/model/CNN_SKIP_CONNECTION-config-v5-msl-1979-2024-lookback3h-forecast4h-circular-norm-cnn-skip-empty_norm-max_pool-depth_8"
-    VERSIONS_TO_ANALYZE = [9, 10, 11, 12]
+    BASE_DIRECTORY = "/home/mansour/ML3300-24a/shreibshtein/DL-precipitation-prediction/model/CNN_SKIP_CONNECTION-config-v5-msl-1979-2024-lookback3h-forecast1h-circular-norm-cnn-skip-empty_norm-max_pool-depth_8"
+    VERSIONS_TO_ANALYZE = [82, 92, 93, 94]
     STATS_DIRECTORY = "/home/mansour/ML3300-24a/shreibshtein/DL-precipitation-prediction/stats"
-    OUTPUT_PLOT_DIR = "sensitivity_analysis_FOLDS_34"
+    OUTPUT_PLOT_DIR = "sensitivity_analysis_31_fall_four"
 
     PARAMETER_NAME_COLUMN_HEADER = "Parameter"
     SENSITIVITY_VALUE_COLUMN_HEADER = "Difference from Baseline"
 
     MEAN_FILENAME_PATTERN = "*mean.pt"
     STD_FILENAME_PATTERN = "*std.pt"
-    TARGET_VARIABLE_INDEX = 28
+    TARGET_VARIABLE_INDEX = 28  # msl index in your normalization tensors
 
     # --- Script Execution ---
     user_parameters_filter_list = parse_parameters(PARAMETERS_STRING)
@@ -269,7 +281,6 @@ if __name__ == "__main__":
             )
 
             print("\n--- Per-Version Denormalized Parameter Sensitivity Summary ---")
-            # (Per-version summary print logic can remain similar)
             if not per_version_sensitivity_results:
                 print("No per-version sensitivity results were processed.")
             else:
@@ -279,23 +290,21 @@ if __name__ == "__main__":
                         print("  No parameters analyzed or plotted for this version.")
                     else:
                         print("  Mean denormalized sensitivities (e.g., MAE Change in mbar):")
-                        # means_denorm is already indexed by parameter names
                         summary_df = pd.DataFrame({
                             'Mean_Denorm_Sens': data['means_denorm'],
                             'Std_Denorm_Sens': data['stds_denorm']
                         })
-                        with pd.option_context('display.max_rows', None, 'display.max_columns', None, 'display.width',
-                                               1000):
+                        with pd.option_context('display.max_rows', None, 'display.max_columns', None, 'display.width', 1000):
                             print(summary_df)
 
-            # --- Aggregate results across versions for the new plot ---
+            # --- Aggregate results across versions for the new plot + CSV ---
             if per_version_sensitivity_results:
                 print("\n--- Aggregating Results for Cross-Version Sensitivity Plot ---")
                 cross_version_sens_values = {}
 
                 for version_num, version_data in per_version_sensitivity_results.items():
                     if "means_denorm" in version_data and not version_data["means_denorm"].empty:
-                        for param_label, mean_value in version_data["means_denorm"].items():  # Iterate over Series
+                        for param_label, mean_value in version_data["means_denorm"].items():
                             if param_label not in cross_version_sens_values:
                                 cross_version_sens_values[param_label] = []
                             cross_version_sens_values[param_label].append(mean_value)
@@ -303,8 +312,6 @@ if __name__ == "__main__":
                 overall_param_means_dict = {}
                 overall_param_stds_dict = {}
 
-                # Calculate mean and std only for parameters that appeared in results
-                # The order will be based on user_parameters_filter_list, but only for existing params
                 temp_plot_labels_with_data = []
                 for param_label in user_parameters_filter_list:
                     if param_label in cross_version_sens_values and cross_version_sens_values[param_label]:
@@ -314,18 +321,13 @@ if __name__ == "__main__":
                         temp_plot_labels_with_data.append(param_label)
 
                 if temp_plot_labels_with_data:
-                    # Convert to Series for easier handling and consistent indexing
                     overall_means_series = pd.Series(overall_param_means_dict).reindex(temp_plot_labels_with_data)
                     overall_stds_series = pd.Series(overall_param_stds_dict).reindex(temp_plot_labels_with_data)
 
-                    # --- Sort by absolute impact for the cross-version plot ---
-                    # Create a temporary series of absolute mean values for sorting
+                    # Sort by absolute impact
                     abs_means_for_sorting = overall_means_series.abs().sort_values(ascending=False)
-
-                    # Get the sorted parameter names (these are the labels for the plot)
                     sorted_plot_labels = abs_means_for_sorting.index.tolist()
 
-                    # Reorder the actual mean and std series according to these sorted labels
                     final_means_series_sorted = overall_means_series.loc[sorted_plot_labels]
                     final_stds_series_sorted = overall_stds_series.loc[sorted_plot_labels]
 
@@ -335,26 +337,34 @@ if __name__ == "__main__":
                         final_means_series_sorted,
                         final_stds_series_sorted,
                         sorted_plot_labels,
-                        plot_title_suffix="24 Hour Forecast",
+                        plot_title_suffix="6 Hour Forecast SON Parameter Sensitivity",
                         output_filename_suffix="overall_cross_version_sorted",
                         output_dir=OUTPUT_PLOT_DIR,
-                        horizontal_plot=True,  # Use horizontal plot for overall summary
-                        sorted_desc=True  # Indicate data is sorted for plot function (for y-axis inversion)
+                        horizontal_plot=True,
+                        sorted_desc=True
                     )
-                    print("\nCross-Version Sensitivity Summary (Mean of per-version means, sorted by impact):")
-                    summary_cross_df = pd.DataFrame({
-                        'Parameter': sorted_plot_labels,  # Use sorted labels
+
+                    # --- NEW: Save overall denormalized mean/std to CSV (sorted) ---
+                    overall_csv_df = pd.DataFrame({
+                        'Parameter': sorted_plot_labels,
                         'Overall_Mean_Sens': final_means_series_sorted.values,
                         'Overall_Std_Sens (Variability across versions)': final_stds_series_sorted.values
-                    }).set_index('Parameter')
-                    with pd.option_context('display.max_rows', None, 'display.max_columns', None, 'display.width',
-                                           1000):
-                        print(summary_cross_df)
+                    })
+                    overall_csv_path = os.path.join(OUTPUT_PLOT_DIR, "denorm_sensitivity_values_overall_cross_version_sorted.csv")
+                    try:
+                        overall_csv_df.to_csv(overall_csv_path, index=False)
+                        print(f"Saved overall denormalized sensitivities to: {overall_csv_path}")
+                    except Exception as e:
+                        print(f"Error saving overall CSV: {e}")
+
+                    print("\nCross-Version Sensitivity Summary (Mean of per-version means, sorted by impact):")
+                    with pd.option_context('display.max_rows', None, 'display.max_columns', None, 'display.width', 1000):
+                        print(overall_csv_df.set_index('Parameter'))
                 else:
-                    print("No data available to generate the cross-version sensitivity plot.")
+                    print("No data available to generate the cross-version sensitivity plot/CSV.")
 
             if OUTPUT_PLOT_DIR and per_version_sensitivity_results:
-                print(f"\nPlots saved in: {os.path.abspath(OUTPUT_PLOT_DIR)}")
+                print(f"\nPlots and CSVs saved in: {os.path.abspath(OUTPUT_PLOT_DIR)}")
         else:
             print("Could not proceed with analysis due to issues loading normalization stats.")
 

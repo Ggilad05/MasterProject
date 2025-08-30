@@ -81,14 +81,19 @@ def calculate_categorized_baseline_errors(ref_file_paths, mean, std, baseline_pr
             if key in processed_keys: continue
             processed_keys.add(key)
             _, y_true_tensor = value[0].cpu(), value[1].cpu()
-            denorm_y_true = (y_true_tensor[:, 0] * std[28] + mean[28]) / 100.0
+            print(f"key: {key}")
+            print(f"y_true_tensor[:, 0]: {y_true_tensor[:, 0]}")
+            denorm_y_true = torch.exp((y_true_tensor[:, 0] * std[28] + mean[28])) / 100.0
+            print(f"denorm_y_true: {denorm_y_true}")
             try:
                 year = key.split('_')[1]
                 p_file = os.path.join(baseline_pred_base_dir, 'naive', year, key)
                 p_pred = np.load(p_file) / 100.0
+                print(f"p_pred: {p_pred}")
                 p_err = p_pred - denorm_y_true.numpy()
                 l_file = os.path.join(baseline_pred_base_dir, 'linear', year, key)
                 l_pred = np.load(l_file) / 100.0
+                print(f"l_pred: {l_pred}")
                 l_err = l_pred - denorm_y_true.numpy()
                 classified = False
                 for category, cat_keys in category_keys.items():
@@ -113,8 +118,13 @@ def calculate_categorized_dl_errors(file_paths, mean, std, category_keys):
         print(file_path)
         for key, value in predictions.items():
             y_hat, y_true = value[0].cpu(), value[1].cpu()
-            denorm_y_hat = (y_hat[:, 0] * std[28] + mean[28]) / 100.0
-            denorm_y_true = (y_true[:, 0] * std[28] + mean[28]) / 100.0
+            print(f"y_hat: {y_hat}")
+            print(f"y_true: {y_true}")
+            denorm_y_hat = torch.exp((y_hat[:, 0] * std[28] + mean[28])) / 100.0
+            denorm_y_true = torch.exp((y_true[:, 0] * std[28] + mean[28])) / 100.0
+            print(f"denorm_y_hat: {denorm_y_hat}")
+            print(f"denorm_y_true: {denorm_y_true}")
+            exit()
             raw_error_dl = (denorm_y_hat - denorm_y_true).detach().numpy()
             classified = False
             for category, cat_keys in category_keys.items():
@@ -198,7 +208,7 @@ if __name__ == "__main__":
     BASELINE_PRED_BASE_DIR = f"/home/mansour/ML3300-24a/shreibshtein/predictions_naive_33"
     STATS_DIRECTORY = "/home/mansour/ML3300-24a/shreibshtein/DL-precipitation-prediction/stats"
     CLASSIFICATION_TXT_DIR = "/home/mansour/ML3300-24a/shreibshtein/classification_txt_files"
-    CONTROL_FOLDS_VERSIONS = ['32']
+    CONTROL_FOLDS_VERSIONS = ['25']
     PLOT_X_LIMITS = (-7, 7)
 
     # =========================================================================

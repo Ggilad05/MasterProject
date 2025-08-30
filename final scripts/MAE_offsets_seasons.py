@@ -4,6 +4,7 @@ import glob
 import os
 import re
 import numpy as np
+from collections import defaultdict
 
 # =============================================================================
 # SCRIPT CONFIGURATION
@@ -34,7 +35,69 @@ OFFSET_MAPPING = {
 
 # ▲▲▲ A A A YOUR SETTINGS END HERE A A A ▲▲▲
 # =============================================================================
+OFFSETS_ORDER = [6, 12, 18, 24]
 
+def compute_skill_scores(plot_data_dict):
+    """
+    From plot_data_dict {category: [(offset, dl_mae, pers_mae), ...]},
+    compute SS = 1 - dl_mae/pers_mae per (category, offset).
+    Returns:
+        ss_by_cat: dict[category] -> dict[offset] -> float
+    """
+    ss_by_cat = defaultdict(dict)
+    for category, triples in plot_data_dict.items():
+        for offset, dl_mae, pers_mae in triples:
+            if pers_mae and pers_mae > 0:
+                ss = 1.0 - (float(dl_mae) / float(pers_mae))
+            else:
+                ss = float('nan')
+            ss_by_cat[category][offset] = ss
+    return ss_by_cat
+
+def compute_and_print_skill(plot_data_dict):
+    """
+    Compute SS tables and print them nicely.
+    1) Full table: rows = categories (NH/SH × seasons), cols = offsets.
+    2) Seasonal mean table: averages NH & SH for each season per offset.
+    """
+    ss_by_cat = compute_skill_scores(plot_data_dict)
+
+    # Build DataFrame for all categories
+    import pandas as pd
+    rows = []
+    for category in sorted(ss_by_cat.keys()):
+        row = {"Category": category}
+        for off in OFFSETS_ORDER:
+            row[f"SS@{off}h"] = ss_by_cat[category].get(off, float('nan'))
+        rows.append(row)
+    df_all = pd.DataFrame(rows).set_index("Category")
+
+    # Compute seasonal means (NH+SH) for DJF/MAM/JJA/SON if both exist
+    season_names = ["DJF", "MAM", "JJA", "SON"]
+    seasonal_rows = []
+    for s in season_names:
+        nh_key = f"NH_{s}"
+        sh_key = f"SH_{s}"
+        row = {"Season": s}
+        for off in OFFSETS_ORDER:
+            vals = []
+            if nh_key in ss_by_cat and off in ss_by_cat[nh_key]:
+                vals.append(ss_by_cat[nh_key][off])
+            if sh_key in ss_by_cat and off in ss_by_cat[sh_key]:
+                vals.append(ss_by_cat[sh_key][off])
+            row[f"SS@{off}h"] = float(pd.Series(vals).mean()) if len(vals) else float('nan')
+        seasonal_rows.append(row)
+    df_season = pd.DataFrame(seasonal_rows).set_index("Season")
+
+    # Print
+    print("\n=== Skill Score (SS) vs Persistence by Category ===")
+    print(df_all.to_string(float_format=lambda x: f"{x:.3f}"))
+
+    print("\n=== Seasonal Mean Skill (NH & SH averaged) ===")
+    print(df_season.to_string(float_format=lambda x: f"{x:.3f}"))
+
+    # Optional: return dfs if you later want to save CSVs
+    return df_all, df_season
 
 def plot_mae_multi_category(plot_data_dict, sample_counts):
     """
@@ -42,7 +105,7 @@ def plot_mae_multi_category(plot_data_dict, sample_counts):
     """
     print("\n📈 Generating single plot for all specified categories...")
 
-    plt.style.use('seaborn-v0_8-whitegrid')
+    # plt.style.use('seaborn-v0_8-whitegrid')
     fig, ax = plt.subplots(figsize=(18, 12))
 
     # --- Configuration Section ---
@@ -82,11 +145,12 @@ def plot_mae_multi_category(plot_data_dict, sample_counts):
         line_style = '-' if hemisphere == 'NH' else '--'
         color = season_colors.get(season_mapping.get(category, ''), 'black')
 
+        print(f"dl_maes: {dl_maes}")
         ax.plot(offsets, dl_maes, color=color, linestyle=line_style, marker='o', linewidth=2.5, zorder=3)
 
         # Add the 6h persistence baseline point
-        if offsets:
-            ax.scatter(offsets[0], persistence_maes[0], color=color, marker='^', s=200, zorder=5, alpha=0.9)
+        # if offsets:
+        #     ax.scatter(offsets[0], persistence_maes[0], color=color, marker='^', s=200, zorder=5, alpha=0.9)
 
 
         if len(offsets) > 1:
@@ -182,52 +246,53 @@ def plot_mae_multi_category(plot_data_dict, sample_counts):
 
     for label in sorted_labels:
         adjusted_y = max(label['y'], last_y_plotted_s + min_y_separation_s)
-        ax.text(label['x'] + 0.2, adjusted_y, label['text'], color=label['color'], fontsize=season_label_fontsize,
+        ax.text(6, adjusted_y, label['text'], color=label['color'], fontsize=season_label_fontsize,
                 fontweight='bold', ha='left', va='center')
         last_y_plotted_s = adjusted_y
 
-    ax.text(6, 0.4, '24h Persistence MAE (mbar)',
-            color='black', fontsize=30, fontweight='bold', ha='left', va='top')
+    # ax.text(6, 0.4, '24h Persistence MAE (mbar)',
+    #         color='black', fontsize=30, fontweight='bold', ha='left', va='top')
 
     # --- Formatting ---
     ax.set_title('Model MAE Comparison by Season and Hemisphere', fontsize=38)
     ax.set_xlabel('Forecast Offset (Hours)', fontsize=36, labelpad=15)
-    ax.set_ylabel('Mean Absolute Error (mbar)', fontsize=28, labelpad=15)
+    ax.set_ylabel('MAE (mbar)', fontsize=28, labelpad=15)
 
     all_offsets = sorted(list(set(t[0] for cat_data in plot_data_dict.values() for t in cat_data)))
     if all_offsets:
         ax.set_xticks(all_offsets)
-        ax.set_xlim(right=max(all_offsets) + 5)
+        # ax.set_xlim(right=max(all_offsets) + 5)
 
     ax.tick_params(axis='x', labelsize=30)
     ax.tick_params(axis='y', labelsize=30)
 
-    # --- Build Legend Text ---
-    legend_lines = [
-        'o  DL Model',
-        '^  6h Persistence',
-        '',
-        '24h Persistence :',
-        '  NH: [24h MAE]id',
-        '  SH: {24h MAE}id',
-        ""
-    ]
-    if sample_counts:
-        legend_lines.append('Mean Sample Counts:')
-        for category in CATEGORIES_TO_PLOT:
-            cat_name = f"{category.split('_')[0]} {season_mapping.get(category, '')}"
-            count = sample_counts.get(category, 'N/A')
-            legend_lines.append(f"  {cat_name}: {count}")
+    # # --- Build Legend Text ---
+    # legend_lines = [
+    #     'o  DL Model',
+    #     '^  6h Persistence',
+    #     '',
+    #     '24h Persistence :',
+    #     '  NH: [24h MAE]id',
+    #     '  SH: {24h MAE}id',
+    #     ""
+    # ]
+    # if sample_counts:
+    #     legend_lines.append('Mean Sample Counts:')
+    #     for category in CATEGORIES_TO_PLOT:
+    #         cat_name = f"{category.split('_')[0]} {season_mapping.get(category, '')}"
+    #         count = sample_counts.get(category, 'N/A')
+    #         legend_lines.append(f"  {cat_name}: {count}")
+    #
+    # explanation_text = '\n'.join(legend_lines)
+    # ax.text(0.98, 0.02, explanation_text, transform=ax.transAxes, fontsize=legend_fontsize,
+    #         verticalalignment='bottom', horizontalalignment='right',
+    #         bbox=dict(boxstyle='round,pad=0.5', fc='white', alpha=0.8))
 
-    explanation_text = '\n'.join(legend_lines)
-    ax.text(0.98, 0.02, explanation_text, transform=ax.transAxes, fontsize=legend_fontsize,
-            verticalalignment='bottom', horizontalalignment='right',
-            bbox=dict(boxstyle='round,pad=0.5', fc='white', alpha=0.8))
-
-    ax.grid(True, which='both', linestyle='--', linewidth=0.7)
+    # ax.grid(True, which='both', linestyle='--', linewidth=0.7)
     fig.tight_layout()
-    fig.patch.set_facecolor('#81CFF3')
+    # fig.patch.set_facecolor('#81CFF3')
     ax.set_ylim(bottom=0)
+
 
     print("✅ Displaying plot...")
     plt.show()
@@ -291,6 +356,7 @@ def main():
                 sample_counts_mean[category] = 'N/A'
 
     plot_mae_multi_category(plot_data_dict, sample_counts_mean)
+    compute_and_print_skill(plot_data_dict)
 
 
 if __name__ == '__main__':
